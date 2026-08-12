@@ -53,7 +53,7 @@ public class AttendanceController {
                     .body(ApiResponse.success("Attendance already recorded.", toResponse(booking, "Attendance already recorded.")));
         }
 
-        Attendance saved = markPresent(booking, principal.getId());
+        Attendance saved = markPresent(booking, principal.getId(), request.getScanMethod());
 
         auditService.record(principal.getId(), "ORGANIZER", "TICKET_CHECK_IN", "ATTENDANCE",
                 String.valueOf(saved.getId()), "Ticket " + booking.getTicketId() + " checked in");
@@ -159,12 +159,21 @@ public class AttendanceController {
     }
 
     private Attendance markPresent(Booking booking, Long organizerId) {
+        return markPresent(booking, organizerId, null);
+    }
+
+    private Attendance markPresent(Booking booking, Long organizerId, String scanMethodStr) {
         LocalDateTime now = LocalDateTime.now();
+        Attendance.ScanMethod method = Attendance.ScanMethod.MANUAL;
+        if (scanMethodStr != null) {
+            try { method = Attendance.ScanMethod.valueOf(scanMethodStr.toUpperCase()); } catch (Exception ignored) {}
+        }
         Attendance attendance = Attendance.builder()
                 .ticketId(booking.getTicketId())
                 .booking(booking)
                 .checkedInAt(now)
                 .scannedByOrganizerId(organizerId)
+                .scanMethod(method)
                 .build();
         Attendance saved = attendanceRepository.save(attendance);
 

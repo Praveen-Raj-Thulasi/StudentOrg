@@ -9,6 +9,9 @@ import com.eventbooking.repository.EventRepository;
 import com.eventbooking.service.CertificateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +46,9 @@ public class EventSchedulerTransactionHelper {
 
     // ── Publish one approval ──────────────────────────────────────────────
 
+    @Retryable(retryFor = CannotAcquireLockException.class,
+               maxAttempts = 3,
+               backoff = @Backoff(delay = 200, multiplier = 2))
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void publishOneApproval(Long approvalId) {
         ApprovalRequest approval = approvalRequestRepository
@@ -59,6 +65,9 @@ public class EventSchedulerTransactionHelper {
 
     // ── Publish one stuck event ───────────────────────────────────────────
 
+    @Retryable(retryFor = CannotAcquireLockException.class,
+               maxAttempts = 3,
+               backoff = @Backoff(delay = 200, multiplier = 2))
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void publishOneStuckEvent(Long eventId) {
         Event event = eventRepository.findByIdWithOrganizer(eventId).orElse(null);
@@ -66,7 +75,15 @@ public class EventSchedulerTransactionHelper {
             log.warn("[EventScheduler] Event {} not found — skipping stuck-event pass", eventId);
             return;
         }
-        if (event.getStatus() == Event.EventStatus.PUBLISHED) return;
+        // Already handled by Pass 1 or a concurrent scheduler run — nothing to do
+        if (event.getStatus() == Event.EventStatus.PUBLISHED
+                || event.getStatus() == Event.EventStatus.LIVE
+                || event.getStatus() == Event.EventStatus.COMPLETED
+                || event.getStatus() == Event.EventStatus.EXPIRED) {
+            log.debug("[EventScheduler] Event {} already in terminal/published state ({}), skipping Pass2",
+                    eventId, event.getStatus());
+            return;
+        }
 
         publishEvent(event, null);
 
@@ -82,6 +99,9 @@ public class EventSchedulerTransactionHelper {
 
     // ── Lifecycle transitions ─────────────────────────────────────────────
 
+    @Retryable(retryFor = CannotAcquireLockException.class,
+               maxAttempts = 3,
+               backoff = @Backoff(delay = 200, multiplier = 2))
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean transitionToLive(Long eventId, LocalDate today) {
         Event e = eventRepository.findById(eventId).orElse(null);
@@ -98,6 +118,9 @@ public class EventSchedulerTransactionHelper {
         return true;
     }
 
+    @Retryable(retryFor = CannotAcquireLockException.class,
+               maxAttempts = 3,
+               backoff = @Backoff(delay = 200, multiplier = 2))
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean transitionToCompleted(Long eventId, LocalDate today) {
         Event e = eventRepository.findByIdWithOrganizer(eventId).orElse(null);
@@ -132,6 +155,9 @@ public class EventSchedulerTransactionHelper {
         return true;
     }
 
+    @Retryable(retryFor = CannotAcquireLockException.class,
+               maxAttempts = 3,
+               backoff = @Backoff(delay = 200, multiplier = 2))
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean transitionToExpired(Long eventId) {
         Event e = eventRepository.findById(eventId).orElse(null);

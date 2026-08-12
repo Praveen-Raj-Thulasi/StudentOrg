@@ -333,7 +333,7 @@ export const eventCommunityAPI = {
 };
 
 export const attendanceAPI = {
-  scan: (eventId, ticketId) => api.post('/attendance/scan', { eventId, ticketId }),
+  scan: (eventId, ticketId, scanMethod) => api.post('/attendance/scan', { eventId, ticketId, scanMethod }),
   markPresent: (eventId, bookingId) => api.patch(`/attendance/events/${eventId}/bookings/${bookingId}/present`),
   forEvent: (eventId) => api.get(`/events/${eventId}/attendance`),
   forBooking: (bookingId) => api.get(`/bookings/${bookingId}/attendance`),

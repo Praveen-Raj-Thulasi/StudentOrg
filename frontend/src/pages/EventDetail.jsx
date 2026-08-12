@@ -20,6 +20,23 @@ const CAT_LABELS = { HACKATHON:'🚀 Hackathon',WORKSHOP:'🔧 Workshop',TECHNIC
   CODING_COMPETITION:'💻 Coding Comp',SEMINAR:'📋 Seminar',PROJECT_EXHIBITION:'🏆 Exhibition',
   PLACEMENT_PREP:'💼 Placement Prep',TECHNICAL_TRAINING:'📚 Training',CULTURAL:'🎭 Cultural',SPORTS:'⚽ Sports' };
 
+const POSTER_MAP = {
+  HACKATHON:           '/event-posters/hackathon.svg',
+  TECHNICAL_SYMPOSIUM: '/event-posters/technical-symposium.svg',
+  CODING_COMPETITION:  '/event-posters/coding-contest.svg',
+  WORKSHOP:            '/event-posters/workshop.svg',
+  SEMINAR:             '/event-posters/college-event.svg',
+  PROJECT_EXHIBITION:  '/event-posters/iot-expo.svg',
+  PLACEMENT_PREP:      '/event-posters/career-fair.svg',
+  TECHNICAL_TRAINING:  '/event-posters/devops.svg',
+  CULTURAL:            '/event-posters/cultural-fest.svg',
+  SPORTS:              '/event-posters/sports-meet.svg',
+  INTER_COLLEGE:       '/event-posters/technical-symposium.svg',
+  INTRA_COLLEGE:       '/event-posters/college-event.svg',
+  CLUB_ACTIVITY:       '/event-posters/entrepreneurship.svg',
+  OTHER:               '/event-posters/college-event.svg',
+};
+
 export default function EventDetail() {
   const { id }       = useParams();
   const [searchParams] = useSearchParams();
@@ -27,6 +44,7 @@ export default function EventDetail() {
   const navigate     = useNavigate();
   const qc           = useQueryClient();
   const [qty, setQty] = useState(1);
+  const [bannerError, setBannerError] = useState(false);
   const [assistantQuestion, setAssistantQuestion] = useState('');
   const [assistantAnswer, setAssistantAnswer] = useState('');
   const initialTab = ['details', 'travel', 'community'].includes(searchParams.get('tab')) ? searchParams.get('tab') : 'details';
@@ -151,12 +169,9 @@ export default function EventDetail() {
                 TECHNICAL_SYMPOSIUM:'linear-gradient(135deg,#312e81,#1e40af)',
               }[ev.category] || 'linear-gradient(135deg,#1e293b,#334155)'
             }}>
-              {ev.eventBanner
-                ? <img src={ev.eventBanner} alt={ev.eventName} onError={(e) => { e.currentTarget.style.display = 'none'; }} className="w-full h-full object-cover" />
-                : <div className="w-full h-full flex flex-col items-center justify-center gap-3 opacity-80">
-                    <span className="text-7xl">{{HACKATHON:'🚀',WORKSHOP:'🔧',SEMINAR:'📋',CULTURAL:'🎭',SPORTS:'⚽',CODING_COMPETITION:'💻',TECHNICAL_SYMPOSIUM:'⚡',PLACEMENT_PREP:'💼',TECHNICAL_TRAINING:'📚',INTER_COLLEGE:'🎓',PROJECT_EXHIBITION:'🏆'}[ev.category]||'📅'}</span>
-                    <span className="text-sm font-bold text-white/60 uppercase tracking-widest">{ev.category?.replace(/_/g,' ')}</span>
-                  </div>}
+              {ev.eventBanner && !bannerError
+                ? <img src={ev.eventBanner} alt={ev.eventName} onError={() => setBannerError(true)} className="w-full h-full object-cover" />
+                : <img src={POSTER_MAP[ev.category] || '/event-posters/college-event.svg'} alt={ev.eventName} className="w-full h-full object-cover" />}
             </div>
 
             {/* Title */}

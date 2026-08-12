@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { FiCalendar, FiMapPin, FiUsers } from 'react-icons/fi';
@@ -5,20 +6,20 @@ import { MdSchool } from 'react-icons/md';
 import { format } from 'date-fns';
 
 const CAT = {
-  HACKATHON:            { cls: 'cat-hackathon', label: 'Hackathon',     emoji: '🚀', grad: 'linear-gradient(135deg,#1e3a5f,#0f766e)' },
-  TECHNICAL_SYMPOSIUM:  { cls: 'cat-symposium', label: 'Symposium',     emoji: '⚡', grad: 'linear-gradient(135deg,#312e81,#1e40af)' },
-  CODING_COMPETITION:   { cls: 'cat-coding',    label: 'Coding Comp',   emoji: '💻', grad: 'linear-gradient(135deg,#064e3b,#065f46)' },
-  WORKSHOP:             { cls: 'cat-workshop',  label: 'Workshop',      emoji: '🔧', grad: 'linear-gradient(135deg,#78350f,#92400e)' },
-  SEMINAR:              { cls: 'cat-seminar',   label: 'Seminar',       emoji: '📋', grad: 'linear-gradient(135deg,#1e3a5f,#1e40af)' },
-  PROJECT_EXHIBITION:   { cls: 'cat-coding',    label: 'Exhibition',    emoji: '🏆', grad: 'linear-gradient(135deg,#7c2d12,#92400e)' },
-  PLACEMENT_PREP:       { cls: 'cat-workshop',  label: 'Placement Prep',emoji: '💼', grad: 'linear-gradient(135deg,#1e3a5f,#374151)' },
-  TECHNICAL_TRAINING:   { cls: 'cat-workshop',  label: 'Training',      emoji: '📚', grad: 'linear-gradient(135deg,#134e4a,#0f766e)' },
-  CULTURAL:             { cls: 'cat-cultural',  label: 'Cultural',      emoji: '🎭', grad: 'linear-gradient(135deg,#86198f,#a21caf)' },
-  SPORTS:               { cls: 'cat-sports',    label: 'Sports',        emoji: '⚽', grad: 'linear-gradient(135deg,#14532d,#15803d)' },
-  INTER_COLLEGE:        { cls: 'cat-symposium', label: 'Inter-College', emoji: '🎓', grad: 'linear-gradient(135deg,#1e3a5f,#1d4ed8)' },
-  INTRA_COLLEGE:        { cls: 'cat-coding',    label: 'Intra-College', emoji: '🏫', grad: 'linear-gradient(135deg,#312e81,#4338ca)' },
-  CLUB_ACTIVITY:        { cls: 'cat-default',   label: 'Club',          emoji: '🌟', grad: 'linear-gradient(135deg,#831843,#9d174d)' },
-  OTHER:                { cls: 'cat-default',   label: 'Event',         emoji: '📅', grad: 'linear-gradient(135deg,#1e293b,#334155)' },
+  HACKATHON:            { cls: 'cat-hackathon', label: 'Hackathon',     poster: '/event-posters/hackathon.svg' },
+  TECHNICAL_SYMPOSIUM:  { cls: 'cat-symposium', label: 'Symposium',     poster: '/event-posters/technical-symposium.svg' },
+  CODING_COMPETITION:   { cls: 'cat-coding',    label: 'Coding Comp',   poster: '/event-posters/coding-contest.svg' },
+  WORKSHOP:             { cls: 'cat-workshop',  label: 'Workshop',      poster: '/event-posters/workshop.svg' },
+  SEMINAR:              { cls: 'cat-seminar',   label: 'Seminar',       poster: '/event-posters/college-event.svg' },
+  PROJECT_EXHIBITION:   { cls: 'cat-coding',    label: 'Exhibition',    poster: '/event-posters/iot-expo.svg' },
+  PLACEMENT_PREP:       { cls: 'cat-workshop',  label: 'Placement Prep',poster: '/event-posters/career-fair.svg' },
+  TECHNICAL_TRAINING:   { cls: 'cat-workshop',  label: 'Training',      poster: '/event-posters/devops.svg' },
+  CULTURAL:             { cls: 'cat-cultural',  label: 'Cultural',      poster: '/event-posters/cultural-fest.svg' },
+  SPORTS:               { cls: 'cat-sports',    label: 'Sports',        poster: '/event-posters/sports-meet.svg' },
+  INTER_COLLEGE:        { cls: 'cat-symposium', label: 'Inter-College', poster: '/event-posters/technical-symposium.svg' },
+  INTRA_COLLEGE:        { cls: 'cat-coding',    label: 'Intra-College', poster: '/event-posters/college-event.svg' },
+  CLUB_ACTIVITY:        { cls: 'cat-default',   label: 'Club',          poster: '/event-posters/entrepreneurship.svg' },
+  OTHER:                { cls: 'cat-default',   label: 'Event',         poster: '/event-posters/college-event.svg' },
 };
 
 const STATUS_CLS = {
@@ -40,6 +41,9 @@ export default function EventCard({ event, compact = false }) {
   const isFree  = !event.ticketPrice || Number(event.ticketPrice) === 0;
   const cat     = CAT[event.category] ?? CAT.OTHER;
   const ended   = ENDED_STATUSES.has(event.status);
+  const [bannerError, setBannerError] = useState(false);
+
+  const showImage = event.eventBanner && !bannerError;
 
   // Human-readable status label
   const statusLabel = {
@@ -71,21 +75,19 @@ export default function EventCard({ event, compact = false }) {
             background: 'linear-gradient(135deg,#E0F2FE,#F8FAFC,#CCFBF1)',
           }}
         >
-          {event.eventBanner ? (
+          {showImage ? (
             <img
               src={event.eventBanner}
               alt={event.eventName}
-              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              onError={() => setBannerError(true)}
               className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
           ) : (
-            <div
-              className="flex h-full w-full flex-col items-center justify-center gap-2"
-              style={{ background: cat.grad }}
-            >
-              <span className="text-5xl opacity-80">{cat.emoji}</span>
-              <span className="text-xs font-bold text-white/70 uppercase tracking-widest">{cat.label}</span>
-            </div>
+            <img
+              src={cat.poster}
+              alt={cat.label}
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
           )}
 
           <div className="absolute left-3 top-3 flex flex-col gap-1.5">

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useState } from 'react';
 import { useQuery } from 'react-query';
 import { motion } from 'framer-motion';
 import {
@@ -11,6 +12,38 @@ import {
   FiMapPin, FiSearch, FiStar, FiUser, FiUsers, FiZap, FiCreditCard,
 } from 'react-icons/fi';
 import { format } from 'date-fns';
+
+/* ─── category → SVG poster map ───────────────────────────────────── */
+const POSTER_MAP = {
+  HACKATHON:           '/event-posters/hackathon.svg',
+  TECHNICAL_SYMPOSIUM: '/event-posters/technical-symposium.svg',
+  CODING_COMPETITION:  '/event-posters/coding-contest.svg',
+  WORKSHOP:            '/event-posters/workshop.svg',
+  SEMINAR:             '/event-posters/college-event.svg',
+  PROJECT_EXHIBITION:  '/event-posters/iot-expo.svg',
+  PLACEMENT_PREP:      '/event-posters/career-fair.svg',
+  TECHNICAL_TRAINING:  '/event-posters/devops.svg',
+  CULTURAL:            '/event-posters/cultural-fest.svg',
+  SPORTS:              '/event-posters/sports-meet.svg',
+  INTER_COLLEGE:       '/event-posters/technical-symposium.svg',
+  INTRA_COLLEGE:       '/event-posters/college-event.svg',
+  CLUB_ACTIVITY:       '/event-posters/entrepreneurship.svg',
+};
+
+/* ─── Thumbnail — uses SVG poster when real banner missing / broken ── */
+function EventThumb({ banner, category, fallbackIcon }) {
+  const [err, setErr] = useState(false);
+  const poster = POSTER_MAP[category] ?? '/event-posters/college-event.svg';
+  const src = (banner && !err) ? banner : poster;
+  return (
+    <img
+      src={src}
+      alt=""
+      className="h-full w-full object-cover"
+      onError={() => setErr(true)}
+    />
+  );
+}
 
 /* ─── helpers ─────────────────────────────────────────────────────── */
 const fadeUp = (delay = 0) => ({
@@ -227,9 +260,7 @@ export default function UserDashboard() {
                   <Link to={`/bookings/${b.id}`}
                     className="flex items-center gap-3 rounded-xl px-3 py-3 hover:bg-slate-50 transition-colors">
                     <div className="h-12 w-16 shrink-0 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center">
-                      {b.event?.eventBanner
-                        ? <img src={b.event.eventBanner} alt="" className="h-full w-full object-cover" />
-                        : <FiCalendar className="w-5 h-5 text-slate-300" />}
+                      <EventThumb banner={b.event?.eventBanner} category={b.event?.category} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-slate-900 truncate leading-tight">
@@ -284,9 +315,7 @@ export default function UserDashboard() {
                   transition={{ delay: 0.08 * i }}>
                   <div className="flex items-center gap-3 rounded-xl px-3 py-3 hover:bg-slate-50 transition-colors">
                     <div className="h-12 w-16 shrink-0 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center">
-                      {ev.eventBanner
-                        ? <img src={ev.eventBanner} alt="" className="h-full w-full object-cover" />
-                        : <FiStar className="w-5 h-5 text-slate-300" />}
+                      <EventThumb banner={ev.eventBanner} category={ev.category} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-slate-900 truncate leading-tight">

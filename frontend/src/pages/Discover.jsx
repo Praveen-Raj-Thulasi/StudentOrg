@@ -40,14 +40,36 @@ function SkeletonCard() {
 
 function MiniEventCard({ event }) {
   const isFree = !event.ticketPrice || parseFloat(event.ticketPrice) === 0;
+  const [bannerError, setBannerError] = useState(false);
+  const showImage = event.eventBanner && !bannerError;
+
+  const CAT_POSTER = {
+    HACKATHON:           '/event-posters/hackathon.svg',
+    TECHNICAL_SYMPOSIUM: '/event-posters/technical-symposium.svg',
+    CODING_COMPETITION:  '/event-posters/coding-contest.svg',
+    WORKSHOP:            '/event-posters/workshop.svg',
+    SEMINAR:             '/event-posters/college-event.svg',
+    PROJECT_EXHIBITION:  '/event-posters/iot-expo.svg',
+    PLACEMENT_PREP:      '/event-posters/career-fair.svg',
+    TECHNICAL_TRAINING:  '/event-posters/devops.svg',
+    CULTURAL:            '/event-posters/cultural-fest.svg',
+    SPORTS:              '/event-posters/sports-meet.svg',
+    INTER_COLLEGE:       '/event-posters/technical-symposium.svg',
+    INTRA_COLLEGE:       '/event-posters/college-event.svg',
+    CLUB_ACTIVITY:       '/event-posters/entrepreneurship.svg',
+    OTHER:               '/event-posters/college-event.svg',
+  };
+  const poster = CAT_POSTER[event.category] ?? '/event-posters/college-event.svg';
+
   return (
     <motion.div whileHover={{ y: -3, boxShadow: '0 12px 32px rgba(15,23,42,0.12)' }}
       className="w-60 shrink-0 rounded-xl border border-slate-200 bg-white overflow-hidden transition-shadow">
       <Link to={`/events/${event.id}`} className="block">
-        <div className="relative h-36 bg-gradient-to-br from-blue-100 to-indigo-100 overflow-hidden">
-          {event.eventBanner
-            ? <img src={event.eventBanner} alt={event.eventName} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
-            : <div className="flex h-full items-center justify-center text-4xl opacity-40"><MdSchool /></div>}
+        <div className="relative h-36 overflow-hidden">
+          {showImage
+            ? <img src={event.eventBanner} alt={event.eventName} onError={() => setBannerError(true)} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
+            : <img src={poster} alt={event.category} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
+          }
           {isFree && <div className="absolute top-2 left-2 rounded-full bg-green-500 px-2 py-0.5 text-[10px] font-bold text-white">FREE</div>}
         </div>
         <div className="p-3">

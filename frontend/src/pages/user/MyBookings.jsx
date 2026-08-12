@@ -113,8 +113,10 @@ export default function MyBookings() {
                   {/* Banner thumb */}
                   <div className="w-full sm:w-28 h-24 rounded-xl overflow-hidden bg-blue-50 flex-shrink-0 flex items-center justify-center relative">
                     {b.event?.eventBanner
-                      ? <img src={b.event.eventBanner} alt="" className="w-full h-full object-cover"/>
-                      : <span className="text-2xl">🎓</span>}
+                      ? <img src={b.event.eventBanner} alt="" className="w-full h-full object-cover"
+                             onError={(e) => { e.currentTarget.style.display='none'; e.currentTarget.parentElement.querySelector('.banner-fallback').style.display='flex'; }} />
+                      : null}
+                    <span className="banner-fallback text-2xl" style={{display: b.event?.eventBanner ? 'none' : 'flex'}}>🎓</span>
                     {/* Event-ended overlay badge */}
                     {(eventEnded || attended) && (
                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-xl">

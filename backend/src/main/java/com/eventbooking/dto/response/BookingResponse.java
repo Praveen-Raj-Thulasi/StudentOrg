@@ -37,6 +37,7 @@ public class BookingResponse {
     public static class EventInfo {
         private Long id;
         private String eventName;
+        private String category;
         private String status;
         private String eventDate;
         private String eventTime;

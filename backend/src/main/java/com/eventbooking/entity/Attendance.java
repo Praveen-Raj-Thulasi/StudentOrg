@@ -26,4 +26,12 @@ public class Attendance {
 
     @Column(name = "scanned_by_organizer_id")
     private Long scannedByOrganizerId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "scan_method", length = 20)
+    private ScanMethod scanMethod;
+
+    public enum ScanMethod {
+        CAMERA, BLUETOOTH, MANUAL
+    }
 }

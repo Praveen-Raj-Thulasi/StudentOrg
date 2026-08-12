@@ -307,6 +307,7 @@ public class BookingService {
                         .toList())
                 .event(e != null ? BookingResponse.EventInfo.builder()
                         .id(e.getId()).eventName(e.getEventName())
+                        .category(e.getCategory())
                         .status(e.getStatus() != null ? e.getStatus().name() : null)
                         .eventDate(e.getEventDate() != null ? e.getEventDate().toString() : null)
                         .eventTime(e.getEventTime() != null ? e.getEventTime().toString() : null)

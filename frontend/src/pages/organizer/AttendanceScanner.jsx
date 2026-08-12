@@ -6,6 +6,7 @@ import jsQR from 'jsqr';
 import { attendanceAPI } from '../../services/api';
 import Spinner from '../../components/common/Spinner';
 import QueryError from '../../components/common/QueryError';
+import TicketScanner from '../../components/organizer/TicketScanner';
 import {
   FiCamera, FiUpload, FiCheckCircle, FiAlertCircle, FiUsers,
   FiWifi, FiWifiOff, FiLink, FiCopy, FiSmartphone, FiRefreshCw,
@@ -403,6 +404,9 @@ export default function AttendanceScanner() {
             </div>
           ))}
         </div>
+
+        {/* ── Multi-Mode Ticket Scanner ─────────────────────────── */}
+        <TicketScanner eventId={eventId} />
 
         <div className="grid lg:grid-cols-[1fr_1.2fr] gap-5">
           {/* Camera & Input */}

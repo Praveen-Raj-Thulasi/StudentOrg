@@ -390,17 +390,45 @@ function ChatWindow({ otherId, otherName, onClose }) {
   const [lastId, setLastId]       = useState(0);
   const [messages, setMessages]   = useState([]);
   const [online, setOnline]       = useState(false);
-  const [typing, setTyping]       = useState(false);
   const [editing, setEditing]     = useState(null);
+  const [menuMsgId, setMenuMsgId] = useState(null);
   const [recording, setRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState(null);
   const [audioDuration, setAudioDuration]   = useState(0);
   const [audioPreviewUrl, setAudioPreviewUrl] = useState(null);
-  const bottomRef    = useRef(null);
-  const mediaRef     = useRef(null);
-  const chunksRef    = useRef([]);
-  const timerRef     = useRef(null);
-  const typingTimerRef = useRef(null);
+  // draggable
+  const [pos, setPos]   = useState({ x: 0, y: 0 });
+  const dragging        = useRef(false);
+  const dragOffset      = useRef({ x: 0, y: 0 });
+  const windowRef       = useRef(null);
+  const bottomRef       = useRef(null);
+  const mediaRef        = useRef(null);
+  const chunksRef       = useRef([]);
+  const timerRef        = useRef(null);
+
+  // drag handlers
+  const onDragStart = (e) => {
+    if (e.button !== 0) return;
+    dragging.current = true;
+    dragOffset.current = { x: e.clientX - pos.x, y: e.clientY - pos.y };
+    e.preventDefault();
+  };
+  useEffect(() => {
+    const onMove = (e) => {
+      if (!dragging.current) return;
+      const el = windowRef.current;
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const w = el ? el.offsetWidth : 360, h = el ? el.offsetHeight : 520;
+      setPos({
+        x: Math.max(0, Math.min(e.clientX - dragOffset.current.x, vw - w)),
+        y: Math.max(0, Math.min(e.clientY - dragOffset.current.y, vh - h)),
+      });
+    };
+    const onUp = () => { dragging.current = false; };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+  }, []);
 
   const mergeMessages = (incoming) => {
     setMessages(prev => {
@@ -412,7 +440,8 @@ function ChatWindow({ otherId, otherName, onClose }) {
     });
   };
 
-  const { data: history = [], refetch } = useQuery(
+  // Load history on open — populates messages state
+  useQuery(
     ['dm-conversation', otherId],
     () => directChatAPI.conversation(otherId).then(r => {
       const msgs = r.data?.data ?? [];
@@ -459,11 +488,19 @@ function ChatWindow({ otherId, otherName, onClose }) {
         try {
           const payload = JSON.parse(frame.body);
           const msg = payload.message;
-          const sameConversation = msg && (String(msg.senderId) === String(otherId) || String(msg.receiverId) === String(otherId));
-          if (!sameConversation) return;
-          if (payload.action === 'deletedForMe') setMessages(prev => prev.filter(m => String(m.id) !== String(msg.id)));
-          else mergeMessages([msg]);
-          refetch();
+          // match any message in this conversation (both directions)
+          const sameConv = msg && (
+            String(msg.senderId) === String(otherId) ||
+            String(msg.receiverId) === String(otherId) ||
+            String(msg.senderId) === String(user.id) ||
+            String(msg.receiverId) === String(user.id)
+          );
+          if (!sameConv) return;
+          if (payload.action === 'deletedForMe') {
+            setMessages(prev => prev.filter(m => String(m.id) !== String(msg.id)));
+          } else {
+            mergeMessages([msg]);
+          }
         } catch {}
       }
     });
@@ -499,7 +536,7 @@ function ChatWindow({ otherId, otherName, onClose }) {
       return directChatAPI.sendVoice(otherId, form);
     },
     {
-      onSuccess: () => {
+      onSuccess: (res) => {
         setAudioBlob(null);
         setAudioPreviewUrl(null);
         setAudioDuration(0);
@@ -546,32 +583,66 @@ function ChatWindow({ otherId, otherName, onClose }) {
   };
 
   const send = () => { if (input.trim() && !sendMut.isLoading) sendMut.mutate(); };
-  const deleteForMe = async (id) => {
+
+  const deleteMsg = async (id) => {
     try {
       await directChatAPI.deleteForMe(id);
       setMessages(prev => prev.filter(m => m.id !== id));
-    } catch (e) { toast.error(e?.response?.data?.message || 'Could not delete message'); }
+      toast.success('Message deleted');
+    } catch (e) { toast.error(e?.response?.data?.message || 'Could not delete'); }
   };
-  const unsend = async (id) => {
+
+  const unsendMsg = async (id) => {
     try {
       const res = await directChatAPI.unsend(id);
       mergeMessages([res.data?.data]);
-    } catch (e) { toast.error(e?.response?.data?.message || 'Could not unsend message'); }
+      toast.success('Message unsent');
+    } catch (e) { toast.error(e?.response?.data?.message || 'Could not unsend'); }
   };
+
+  const copyMsg = (content) => {
+    navigator.clipboard?.writeText(content).then(() => toast.success('Copied'));
+    setMenuMsgId(null);
+  };
+
+  const startEdit = (msg) => {
+    setEditing(msg);
+    setInput(msg.content);
+    setMenuMsgId(null);
+  };
+
+  // close menu on outside click
+  useEffect(() => {
+    if (!menuMsgId) return;
+    const close = () => setMenuMsgId(null);
+    window.addEventListener('click', close);
+    return () => window.removeEventListener('click', close);
+  }, [menuMsgId]);
 
   const fmtTime = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
+  // position: default bottom-right; after first drag, use absolute top/left
+  const winStyle = pos.x === 0 && pos.y === 0
+    ? { bottom: '24px', right: '24px' }
+    : { top: `${pos.y}px`, left: `${pos.x}px`, bottom: 'auto', right: 'auto' };
+
   return (
     <motion.div
+      ref={windowRef}
       initial={{ opacity: 0, scale: 0.95, y: 20 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95, y: 20 }}
       transition={{ duration: 0.18 }}
-      className="fixed bottom-6 right-6 z-50 flex flex-col w-[360px] h-[520px] bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden"
+      className="fixed z-50 flex flex-col w-[360px] h-[520px] bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden"
+      style={winStyle}
     >
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-teal-600 to-teal-700 text-white shrink-0">
-        <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
+      {/* Header — drag handle */}
+      <div
+        className="flex items-center gap-3 px-4 py-3 bg-gradient-to-r from-teal-600 to-teal-700 text-white shrink-0 cursor-grab active:cursor-grabbing select-none"
+        onMouseDown={onDragStart}
+      >
+        <button onClick={onClose} onMouseDown={e => e.stopPropagation()}
+          className="text-white/70 hover:text-white transition-colors">
           <FiArrowLeft className="h-4 w-4" />
         </button>
         <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center font-bold text-sm shrink-0">
@@ -585,7 +656,7 @@ function ChatWindow({ otherId, otherName, onClose }) {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2 bg-slate-50">
+      <div className="flex-1 overflow-y-auto p-4 space-y-1 bg-slate-50" onClick={() => setMenuMsgId(null)}>
         {messages.length === 0 && (
           <div className="flex flex-col items-center pt-10 text-slate-400">
             <FiMessageSquare className="h-10 w-10 mb-3 opacity-30" />
@@ -593,21 +664,65 @@ function ChatWindow({ otherId, otherName, onClose }) {
             <p className="text-xs mt-1">Say hi! 👋</p>
           </div>
         )}
-        {history.map(msg => {
-          const isMine = msg.senderId !== otherId;
+        {messages.map(msg => {
+          const isMine  = String(msg.senderId) === String(user?.id);
+          const isUnsent = msg.deletedForEveryone || msg.deleted;
           return (
-            <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[78%] rounded-2xl px-3 py-2 text-sm shadow-sm ${
-                isMine ? 'bg-teal-600 text-white rounded-br-sm' : 'bg-white border border-slate-200 text-slate-800 rounded-bl-sm'
-              }`}>
+            <div key={msg.id} className={`group flex ${isMine ? 'justify-end' : 'justify-start'} relative`}>
+              {/* context menu */}
+              {menuMsgId === msg.id && (
+                <div
+                  className={`absolute z-20 bottom-full mb-1 ${isMine ? 'right-0' : 'left-0'} bg-white border border-slate-200 rounded-xl shadow-xl py-1 min-w-[140px] text-sm`}
+                  onClick={e => e.stopPropagation()}
+                >
+                  <button onClick={() => copyMsg(msg.content)}
+                    className="flex w-full items-center gap-2 px-3 py-2 hover:bg-slate-50 text-slate-700">
+                    📋 Copy
+                  </button>
+                  {isMine && !isUnsent && (
+                    <>
+                      <button onClick={() => startEdit(msg)}
+                        className="flex w-full items-center gap-2 px-3 py-2 hover:bg-slate-50 text-slate-700">
+                        <FiEdit2 className="h-3.5 w-3.5 text-slate-400" /> Edit
+                      </button>
+                      <button onClick={() => { unsendMsg(msg.id); setMenuMsgId(null); }}
+                        className="flex w-full items-center gap-2 px-3 py-2 hover:bg-amber-50 text-amber-700">
+                        <FiRotateCcw className="h-3.5 w-3.5" /> Unsend
+                      </button>
+                      <button onClick={() => { deleteMsg(msg.id); setMenuMsgId(null); }}
+                        className="flex w-full items-center gap-2 px-3 py-2 hover:bg-red-50 text-red-600">
+                        <FiTrash2 className="h-3.5 w-3.5" /> Delete
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+
+              <div className={`max-w-[78%] rounded-2xl px-3 py-2 text-sm shadow-sm relative ${
+                isMine
+                  ? 'bg-teal-600 text-white rounded-br-sm'
+                  : 'bg-white border border-slate-200 text-slate-800 rounded-bl-sm'
+              } ${isUnsent ? 'opacity-60 italic' : ''}`}>
+                {/* ⋮ menu trigger */}
+                {!isUnsent && (
+                  <button
+                    onClick={e => { e.stopPropagation(); setMenuMsgId(prev => prev === msg.id ? null : msg.id); }}
+                    className={`absolute -top-1 ${isMine ? '-left-5' : '-right-5'} opacity-0 group-hover:opacity-100 transition-opacity rounded p-0.5 hover:bg-slate-200`}
+                  >
+                    <span className="text-slate-500 text-xs">⋮</span>
+                  </button>
+                )}
                 {msg.messageType === 'VOICE' ? (
                   <VoicePlayer url={msg.voiceUrl} duration={msg.voiceDurationSeconds} mine={isMine} />
                 ) : (
                   <p className="whitespace-pre-wrap break-words">{msg.content}</p>
                 )}
+                {msg.edited && !isUnsent && (
+                  <span className={`text-[9px] ${isMine ? 'text-teal-200' : 'text-slate-400'}`}> (edited)</span>
+                )}
                 <p className={`text-[10px] mt-1 flex items-center justify-end gap-1 ${isMine ? 'text-teal-200' : 'text-slate-400'}`}>
                   {msg.sentAt ? new Date(msg.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                  {isMine && <span>{msg.read ? '✓✓' : '✓'}</span>}
+                  {isMine && <span title={msg.read ? 'Seen' : 'Delivered'}>{msg.read ? '✓✓' : '✓'}</span>}
                 </p>
               </div>
             </div>
@@ -616,7 +731,17 @@ function ChatWindow({ otherId, otherName, onClose }) {
         <div ref={bottomRef} />
       </div>
 
-      {/* Voice preview bar */}
+      {/* Edit banner */}
+      {editing && (
+        <div className="px-3 py-1.5 bg-teal-50 border-t border-teal-100 flex items-center justify-between shrink-0">
+          <span className="text-xs text-teal-700 font-semibold">Editing message</span>
+          <button onClick={() => { setEditing(null); setInput(''); }} className="text-teal-400 hover:text-teal-700">
+            <FiX className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Voice preview */}
       {audioPreviewUrl && !recording && (
         <div className="px-3 py-2 border-t border-slate-100 bg-teal-50 flex items-center gap-2 shrink-0">
           <audio src={audioPreviewUrl} controls className="flex-1 h-8" style={{ width: '100%', height: '32px' }} />
@@ -626,7 +751,7 @@ function ChatWindow({ otherId, otherName, onClose }) {
             {sendVoiceMut.isLoading ? '…' : 'Send'}
           </button>
           <button onClick={() => { setAudioBlob(null); setAudioPreviewUrl(null); }}
-            className="shrink-0 text-slate-400 hover:text-red-500 transition-colors">
+            className="shrink-0 text-slate-400 hover:text-red-500">
             <FiX className="h-4 w-4" />
           </button>
         </div>
@@ -638,7 +763,7 @@ function ChatWindow({ otherId, otherName, onClose }) {
           <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
           <span className="text-xs font-bold text-red-600 flex-1">Recording {fmtTime(audioDuration)}</span>
           <button onClick={stopRecording} className="rounded-xl bg-red-600 text-white text-xs font-bold px-3 py-1.5">Stop</button>
-          <button onClick={cancelRecording} className="text-slate-400 hover:text-red-500 transition-colors"><FiX className="h-4 w-4" /></button>
+          <button onClick={cancelRecording} className="text-slate-400 hover:text-red-500"><FiX className="h-4 w-4" /></button>
         </div>
       )}
 
@@ -650,11 +775,10 @@ function ChatWindow({ otherId, otherName, onClose }) {
             onChange={e => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 96) + 'px'; }}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
             rows={1}
-            placeholder="Type a message…"
+            placeholder={editing ? 'Edit message…' : 'Type a message…'}
             className="flex-1 resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-teal-400 focus:bg-white transition-colors"
             style={{ minHeight: '40px', maxHeight: '96px' }}
           />
-          {/* Voice record button */}
           <button onClick={startRecording} title="Record voice message"
             className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-500 hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-colors shrink-0">
             <FiMic className="h-4 w-4" />

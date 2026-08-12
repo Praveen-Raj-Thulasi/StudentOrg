@@ -11,8 +11,8 @@ import {
 import { MdSchool } from 'react-icons/md';
 
 export default function OrganizerAttendees() {
-  const [search, setSearch]         = useState('');
-  const [selectedEvent, setEvent]   = useState('ALL');
+  const [search, setSearch]       = useState('');
+  const [selectedEvent, setEvent] = useState('ALL');
 
   const { data: participants, isLoading, isError, error, refetch } = useQuery(
     'org-participants',

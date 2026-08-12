@@ -57,6 +57,7 @@ public class BookingMapper {
                 .event(event != null ? BookingResponse.EventInfo.builder()
                         .id(event.getId())
                         .eventName(event.getEventName())
+                        .category(event.getCategory())
                         .status(event.getStatus() != null ? event.getStatus().name() : null)
                         .eventDate(event.getEventDate() != null ? event.getEventDate().toString() : null)
                         .eventTime(event.getEventTime() != null ? event.getEventTime().toString() : null)

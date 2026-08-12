@@ -11,4 +11,7 @@ public class AttendanceScanRequest {
 
     @NotBlank(message = "Ticket ID is required")
     private String ticketId;
+
+    /** Optional scanning method — CAMERA, BLUETOOTH, or MANUAL. Defaults to MANUAL if omitted. */
+    private String scanMethod;
 }
