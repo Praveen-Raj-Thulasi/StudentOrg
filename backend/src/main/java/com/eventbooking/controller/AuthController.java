@@ -217,27 +217,31 @@ public class AuthController {
             return ResponseEntity.badRequest().body(ApiResponse.error("Email is required"));
         }
 
-        if (otpStore.hasPending(email)) {
-            return ResponseEntity.ok(ApiResponse.success("An OTP is already pending. Please check your inbox.",
-                    Map.of("emailSent", false, "pending", true)));
-        }
-
-        // Rate limit OTP requests to 1 request per 60 seconds per email
+        // ── Rate limits checked BEFORE generating/storing OTP ─────────────
+        // Rate limit: 1 request per 60 seconds per email
         if (!rateLimiterService.isAllowed("otp_email:" + email.toLowerCase(), 1, 60_000)) {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                     .body(ApiResponse.error("Please wait 60 seconds before requesting another OTP."));
         }
 
-        // Rate limit OTP requests to 10 requests per hour per IP (prevent abuse)
+        // Rate limit: 10 requests per hour per IP
         String ip = httpRequest.getRemoteAddr();
         if (!rateLimiterService.isAllowed("otp_ip:" + ip, 10, 3600_000)) {
             return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                     .body(ApiResponse.error("Too many OTP requests from this IP. Please try again later."));
         }
 
+        // ── Already has a valid pending OTP (from a successful prior delivery) ──
+        if (otpStore.hasPending(email)) {
+            return ResponseEntity.ok(ApiResponse.success("An OTP is already pending. Please check your inbox.",
+                    Map.of("emailSent", false, "pending", true)));
+        }
+
+        // ── Generate and store OTP ─────────────────────────────────────────
         String otp = otpStore.generate(email);
         log.info("[OTP] Generated for email={}", email);
 
+        // ── Resolve display name ───────────────────────────────────────────
         String name = body.getOrDefault("name", "User");
         try {
             if ("ORGANIZER".equalsIgnoreCase(role)) {
@@ -249,17 +253,23 @@ public class AuthController {
             }
         } catch (Exception ignored) {}
 
+        // ── Attempt email delivery ─────────────────────────────────────────
         try {
             emailService.sendOtpEmail(email, name, otp);
-            log.info("[OTP] Email sent to {} via SMTP {}", email, mailUsername);
+            log.info("[OTP] Email delivered successfully to {}", email);
             return ResponseEntity.ok(ApiResponse.success("OTP sent to " + email,
                     Map.of("emailSent", true)));
         } catch (Exception emailEx) {
-            // Log full cause chain so we can diagnose SMTP auth failures
+            // Email failed — INVALIDATE the stored OTP so the user can retry immediately
+            // without hitting the "OTP already pending" guard which would return a false 200
+            otpStore.invalidate(email);
+
+            // Log root cause safely — never log the SMTP password
             Throwable root = emailEx;
             while (root.getCause() != null) root = root.getCause();
-            log.error("[OTP] Email delivery failed for {} — root cause: {} — {}", email,
-                    root.getClass().getSimpleName(), root.getMessage());
+            log.error("[OTP] Email delivery FAILED for {} — SMTP error: {} — {}",
+                    email, root.getClass().getSimpleName(), root.getMessage());
+
             String hint = buildSmtpHint(emailEx.getMessage());
             return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(ApiResponse.error(hint));
         }

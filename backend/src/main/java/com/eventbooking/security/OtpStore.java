@@ -59,6 +59,16 @@ public class OtpStore {
         return entry != null && System.currentTimeMillis() <= entry.expiresAt();
     }
 
+    /**
+     * Invalidate any stored OTP for this email.
+     * Call this when email delivery fails so the user can request a fresh OTP immediately
+     * without hitting the "OTP already pending" guard on retry.
+     */
+    public void invalidate(String email) {
+        store.remove(email.toLowerCase());
+        log.debug("OTP invalidated for {} due to delivery failure", email);
+    }
+
     @Scheduled(fixedRate = 3_600_000)
     public void evictExpired() {
         long now = System.currentTimeMillis();

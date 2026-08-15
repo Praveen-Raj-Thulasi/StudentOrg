@@ -51,21 +51,65 @@ public class EmailService {
     @Value("${spring.mail.username:NOT_CONFIGURED}")
     private String mailUsername;
 
-    /** Startup validation — confirms JavaMailSender is wired and logs SMTP config. */
+    @Value("${spring.mail.password:}")
+    private String mailPassword;
+
+    @Value("${spring.mail.host:smtp.gmail.com}")
+    private String mailHost;
+
+    @Value("${spring.mail.port:587}")
+    private int mailPort;
+
+    /** Startup validation — confirms JavaMailSender is wired and logs SMTP config (no secrets). */
     @PostConstruct
     public void validateMailConfig() {
+        // ── Safe diagnostics — NEVER log the actual password ──────────────────
+        boolean usernamePresent = mailUsername != null
+                && !mailUsername.isBlank()
+                && !mailUsername.equals("NOT_CONFIGURED")
+                && !mailUsername.contains("REPLACE_WITH");
+        boolean passwordPresent = mailPassword != null && !mailPassword.isBlank();
+        // Detect common mistake: App Password copied with spaces (Google shows "xxxx xxxx xxxx xxxx")
+        boolean passwordHasSpaces = passwordPresent && mailPassword.contains(" ");
+        // Detect CRLF contamination from Windows .env files (\r appended to value)
+        boolean passwordHasCR = passwordPresent && mailPassword.contains("\r");
+        int passwordLength = passwordPresent ? mailPassword.trim().replaceAll("\\s", "").length() : 0;
+
+        log.info("──────────────────────────────────────────────────────");
+        log.info("📧 SMTP Configuration Diagnostic");
+        log.info("   Host     : {}", mailHost);
+        log.info("   Port     : {}", mailPort);
+        log.info("   Username : {}", usernamePresent ? mailUsername : "❌ NOT SET");
+        log.info("   Password : {}", passwordPresent ? "[SET, length=" + passwordLength + "]" : "❌ NOT SET");
+        if (passwordHasSpaces)
+            log.warn("⚠️  MAIL_PASSWORD contains spaces — Google App Passwords must have spaces removed. " +
+                     "Copy the 16-character password WITHOUT spaces from myaccount.google.com/apppasswords");
+        if (passwordHasCR)
+            log.warn("⚠️  MAIL_PASSWORD contains a carriage-return (\\r) character — likely caused by " +
+                     "Windows CRLF line endings in your .env file. This will cause 535 auth failure. " +
+                     "Save your .env file with LF (Unix) line endings.");
+        if (passwordPresent && passwordLength != 16)
+            log.warn("⚠️  MAIL_PASSWORD effective length is {} (expected 16 for a Google App Password). " +
+                     "Verify you are using a Google App Password, not your regular Gmail password.", passwordLength);
+        if (!usernamePresent)
+            log.warn("⚠️  MAIL_USERNAME is not set. Emails will fail. Set MAIL_USERNAME=your@gmail.com in .env");
+        if (!passwordPresent)
+            log.warn("⚠️  MAIL_PASSWORD is not set. Emails will fail. Set MAIL_PASSWORD=<16-char App Password> in .env");
+        // Warn if a Windows environment variable might be overriding the .env file value
+        String winEnvPass = System.getenv("MAIL_PASSWORD");
+        if (winEnvPass != null && !winEnvPass.isBlank()) {
+            log.warn("⚠️  MAIL_PASSWORD is also set as a Windows/OS environment variable (length={}). " +
+                     "OS environment variables take precedence over .env file — if SMTP auth fails after " +
+                     "updating .env, also update the Windows User environment variable via: " +
+                     "System Properties -> Environment Variables -> User variables -> MAIL_PASSWORD",
+                     winEnvPass.replaceAll(".", "*").length());
+        }
+        log.info("──────────────────────────────────────────────────────");
+
         if (mailSender instanceof JavaMailSenderImpl impl) {
-            log.info("✅ JavaMailSender initialized — SMTP host: {}:{}, from: {}",
-                    impl.getHost(), impl.getPort(), mailUsername);
+            log.info("✅ JavaMailSender initialized — SMTP {}:{}", impl.getHost(), impl.getPort());
         } else {
             log.info("✅ JavaMailSender initialized (custom implementation)");
-        }
-
-        // Warn if placeholder credentials are still set
-        if (mailUsername.contains("REPLACE_WITH") || mailUsername.equals("NOT_CONFIGURED")) {
-            log.warn("⚠️  Mail username looks like a placeholder: '{}'. " +
-                     "Set MAIL_USERNAME and MAIL_PASSWORD environment variables " +
-                     "or replace values in application.yml to enable email delivery.", mailUsername);
         }
     }
 
@@ -294,10 +338,19 @@ public class EmailService {
             helper.setFrom(mailUsername);
             mailSender.send(message);
             log.info("✅ Email sent to {}: {}", to, subject);
+        } catch (org.springframework.mail.MailAuthenticationException authEx) {
+            // 535 / authentication failure — safe log, no password exposed
+            log.error("❌ SMTP authentication failed for {} — " +
+                      "verify MAIL_PASSWORD is a valid Google App Password (not your Gmail password). " +
+                      "Generate one at myaccount.google.com/apppasswords. SMTP error: {}",
+                      to, authEx.getMessage());
+            throw new RuntimeException("SMTP authentication failed. Check MAIL_PASSWORD in .env.", authEx);
+        } catch (org.springframework.mail.MailSendException sendEx) {
+            log.error("❌ SMTP send failed to {}: {}", to, sendEx.getMessage());
+            throw new RuntimeException("Email delivery failed (SMTP send error): " + sendEx.getMessage(), sendEx);
         } catch (Exception ex) {
             log.error("❌ Email delivery FAILED to {}: {} — cause: {}",
                     to, subject, ex.getMessage());
-            // Re-throw as runtime so caller knows if needed
             throw new RuntimeException("Email delivery failed: " + ex.getMessage(), ex);
         }
     }
