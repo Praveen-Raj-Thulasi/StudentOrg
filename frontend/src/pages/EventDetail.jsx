@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { motion } from 'framer-motion';
-import { eventsAPI, bookingsAPI, paymentsAPI, getApiErrorMessage } from '../services/api';
+import { eventsAPI, bookingsAPI, paymentsAPI, membershipAPI, getApiErrorMessage } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import Spinner from '../components/common/Spinner';
 import QueryError from '../components/common/QueryError';
@@ -57,6 +57,11 @@ export default function EventDetail() {
     ['related-events', id, data?.category, data?.location],
     () => eventsAPI.search({ category: data.category, location: data.location, size: 4 }).then(r => r.data?.data),
     { enabled: !!data?.category, staleTime: 60_000 }
+  );
+  const { data: membershipData } = useQuery(
+    ['my-membership', user?.id],
+    () => membershipAPI.getMy().then((response) => response.data?.data),
+    { enabled: Boolean(user && ['USER', 'STUDENT'].includes(String(user.role).toUpperCase())), staleTime: 60_000 }
   );
 
   // Check if logged-in user has a confirmed booking for this event
@@ -139,8 +144,12 @@ export default function EventDetail() {
   );
 
   const ev       = data;
-  const isFree   = !ev.ticketPrice || Number(ev.ticketPrice) === 0;
-  const total    = isFree ? 0 : Number(ev.ticketPrice) * qty;
+  const hasActiveMembership = membershipData?.status === 'ACTIVE';
+  const ticketUnitPrice = hasActiveMembership && ev.memberTicketPrice != null
+    ? Number(ev.memberTicketPrice)
+    : Number(ev.ticketPrice || 0);
+  const isFree   = ticketUnitPrice === 0;
+  const total    = ticketUnitPrice * qty;
   const registrationDeadline = ev.registrationDeadline ? new Date(`${ev.registrationDeadline}T23:59:59`) : null;
   const canBook  = ev.availableSeats > 0
     && ['PUBLISHED', 'UPCOMING', 'LIVE', 'ONGOING'].includes(ev.status)
@@ -419,7 +428,10 @@ export default function EventDetail() {
                 <p className="text-xs text-gray-500 mb-1 font-medium">Ticket Price</p>
                 {isFree
                   ? <p className="text-3xl font-extrabold text-green-600">Free</p>
-                  : <p className="text-3xl font-extrabold text-blue-900">₹{Number(ev.ticketPrice).toLocaleString()}<span className="text-sm font-normal text-gray-400"> / ticket</span></p>}
+                  : <p className="text-3xl font-extrabold text-blue-900">₹{ticketUnitPrice.toLocaleString()}<span className="text-sm font-normal text-gray-400"> / ticket</span></p>}
+                {hasActiveMembership && ev.memberTicketPrice != null && Number(ev.memberTicketPrice) < Number(ev.ticketPrice) && (
+                  <p className="mt-1 text-xs font-semibold text-emerald-700">Active member price applied · regular price ₹{Number(ev.ticketPrice).toLocaleString()}</p>
+                )}
               </div>
 
               {canBook && (

@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { bookingsAPI, certificatesAPI } from '../../services/api';
 import Spinner from '../../components/common/Spinner';
 import QueryError from '../../components/common/QueryError';
+import ConfirmModal from '../../components/common/ConfirmModal';
 import { toast } from 'react-toastify';
 import { FiCalendar, FiMapPin, FiX, FiEye, FiDownload, FiCheckCircle, FiClock, FiAward, FiAlertCircle } from 'react-icons/fi';
 import { MdSchool } from 'react-icons/md';
@@ -18,6 +19,7 @@ export default function MyBookings() {
   const [page, setPage]    = useState(0);
   const [tab, setTab]      = useState('active'); // 'active' | 'history'
   const [qrModal, setQrModal] = useState(null);
+  const [cancelConfirmId, setCancelConfirmId] = useState(null);
 
   const { data, isLoading, isError, error, refetch } = useQuery(['my-bookings', page],
     () => bookingsAPI.myBookings({ page, size:50 }).then(r => r.data?.data),
@@ -25,7 +27,16 @@ export default function MyBookings() {
 
   const cancelMutation = useMutation(
     ({ id }) => bookingsAPI.cancel(id, 'User requested cancellation'),
-    { onSuccess:() => { toast.success('Booking cancelled. Refund initiated.'); qc.invalidateQueries('my-bookings'); } }
+    {
+      onSuccess:() => {
+        toast.success('Booking cancelled. Refund initiated.');
+        qc.invalidateQueries('my-bookings');
+        setCancelConfirmId(null);
+      },
+      onError:(err) => {
+        setCancelConfirmId(null);
+      }
+    }
   );
 
   if (isLoading) return <Spinner />;
@@ -251,7 +262,7 @@ export default function MyBookings() {
                       )}
                       {/* Cancel only for active confirmed bookings on non-ended events, not yet attended */}
                       {b.bookingStatus === 'CONFIRMED' && !inactive && !eventEnded && !attended && (
-                        <button onClick={() => { if (window.confirm('Cancel this booking?')) cancelMutation.mutate({ id:b.id }); }}
+                        <button onClick={() => setCancelConfirmId(b.id)}
                           className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 font-semibold transition-colors">
                           <FiX className="w-3.5 h-3.5"/> Cancel
                         </button>
@@ -299,6 +310,18 @@ export default function MyBookings() {
             </motion.div>
           </div>
         )}
+
+        <ConfirmModal
+          isOpen={Boolean(cancelConfirmId)}
+          title="Cancel Booking"
+          message="Are you sure you want to cancel this booking? If eligible, an automatic refund will be initiated."
+          confirmText="Yes, Cancel Booking"
+          cancelText="Keep Booking"
+          variant="danger"
+          loading={cancelMutation.isLoading}
+          onConfirm={() => cancelMutation.mutate({ id: cancelConfirmId })}
+          onClose={() => setCancelConfirmId(null)}
+        />
       </div>
     </div>
   );

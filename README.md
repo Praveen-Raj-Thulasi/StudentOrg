@@ -36,68 +36,100 @@ A full-stack, production-ready platform for discovering, booking, and managing c
 
 | Layer | Technology |
 |---|---|
-| **Backend** | Spring Boot 3.2, Java 21 |
-| **Database** | MySQL 8 (primary), MongoDB 7 (optional — logs/notifications) |
-| **ORM** | Spring Data JPA / Hibernate |
-| **Security** | JWT (JJWT), Spring Security, BCrypt |
-| **Real-time** | WebSocket / STOMP, Server-Sent Events (SSE) |
-| **AI** | Google Gemini 2.5 Flash via Spring AI |
-| **Payments** | Razorpay |
-| **Email** | JavaMail + Gmail SMTP |
-| **QR Codes** | ZXing |
+| **Backend (Active)** | Node.js (LTS), Express 4, Mongoose 8 |
+| **Backend (Reference)** | Spring Boot 3.2, Java 21 (original reference implementation preserved in `backend/`) |
+| **Primary Database** | MongoDB (Replica Set / Single-node with ACID transaction support) |
+| **Historical Source DB** | MySQL 8 (historical source data migrated via `backend-node/scripts/migrate-mysql-to-mongo.js`) |
+| **Security** | JWT, BCrypt, Helmet, CORS |
+| **Real-time** | Dual-Stack: Native WebSocket (STOMP 1.2 protocol) + Socket.IO (`socket.io`), Server-Sent Events (SSE) |
+| **AI Subsystem** | Google Gemini 2.5 Flash via `@google/genai` (EventGPT, Copilot, RAG, Tool Calling) |
+| **Payments** | Razorpay SDK & Webhook Signature Verification |
+| **Email** | Nodemailer + SMTP (Gmail) |
+| **QR Codes & PDFs** | QRCode & PDF-Lib |
 | **Frontend** | React 18, Vite 5, Tailwind CSS 3 |
 | **State** | React Query (TanStack Query v3) |
 | **Forms** | React Hook Form + Yup |
 | **Animations** | Framer Motion |
 | **Charts** | Recharts |
-| **Containerization** | Docker Compose |
+| **Test Suites** | Vitest, Supertest (163/163 passing backend & e2e integration tests) |
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    React Frontend                    │
-│  Vite · Tailwind · React Query · Framer Motion      │
-└──────────────────────┬──────────────────────────────┘
-                       │ HTTP / WebSocket / SSE
-┌──────────────────────▼──────────────────────────────┐
-│               Spring Boot Backend                    │
-│                                                      │
-│  Controllers → Services → Repositories → Entities   │
-│                                                      │
-│  Modules:                                            │
-│  • auth/       JWT authentication + OTP              │
-│  • events/     Event lifecycle management            │
-│  • bookings/   Ticket booking + QR codes             │
-│  • payments/   Razorpay integration + refunds        │
-│  • ai/         Gemini AI engine + RAG pipeline       │
-│  • networking/ Peer connection recommendations       │
-│  • community/  Real-time WebSocket chat              │
-│  • certificates/ Certificate generation + PDF        │
-│  • notifications/ SSE push + MongoDB persistence     │
-│  • scheduler/  Event lifecycle + booking expiry      │
-└──────────────────────┬──────────────────────────────┘
-              ┌────────┴────────┐
-              ▼                 ▼
-          MySQL 8           MongoDB 7 (optional)
-    (events, bookings,    (notifications, email
-     users, payments)      logs, analytics)
+┌─────────────────────────────────────────────────────────┐
+│                     React Frontend                      │
+│     Vite (Port 3000) · Tailwind · React Query · Framer  │
+└───────────────────────────┬─────────────────────────────┘
+                            │ /api, /socket.io, /uploads proxied
+┌───────────────────────────▼─────────────────────────────┐
+│          Node.js / Express Backend (Port 8080)          │
+│                                                         │
+│  Controllers → Services → Mongoose Models (35 schemas)  │
+│                                                         │
+│  Modules:                                               │
+│  • auth/          JWT authentication + OTP + Refresh    │
+│  • events/        Event lifecycle & discovery           │
+│  • bookings/      Ticket booking & QR code generation   │
+│  • payments/      Razorpay integration, webhooks & refund│
+│  • ai/            Gemini AI provider & EventGPT Copilot │
+│  • networking/    Peer connection recommendation engine │
+│  • community/     Real-time STOMP & Socket.IO chat      │
+│  • attendance/    QR check-in & wireless scanner relay  │
+│  • certificates/  PDF generation & verification         │
+│  • notifications/ SSE push stream & in-app alerts       │
+│  • gamification/  XP, badges, levels & student portfolio│
+│  • analytics/     Organizer metrics & public leaderboard│
+│  • help/          FAQ & tutorial video knowledge base   │
+└───────────────────────────┬─────────────────────────────┘
+                            │ Mongoose ODM
+                            ▼
+                    MongoDB Database
+         (Users, Events, Bookings, Tickets, Payments,
+          Certificates, Chat, Notifications, Analytics)
 ```
 
-### Backend Package Structure
+---
+
+### Running the System
+
+#### 1. Start MongoDB
+Ensure MongoDB is running locally on port 27017 or provide `MONGODB_URI` in `.env`:
+```bash
+# Example with Docker
+docker run -d --name mongodb -p 27017:27017 mongo:7
 ```
-com.eventbooking/
-├── ai/              # Gemini provider, RAG pipeline, agent tools
-├── config/          # Security, WebSocket, CORS, schema migrations
-├── controller/      # REST API endpoints
-├── dto/             # Request and response DTOs
-│   ├── request/
-│   └── response/
-├── entity/          # JPA entities (MySQL)
-│   └── mongo/       # MongoDB documents
-├── exception/       # Custom exceptions + GlobalExceptionHandler
+
+#### 2. Run Data Migration (if migrating existing MySQL database)
+```bash
+cd backend-node
+npm run migrate:check    # Verify connectivity and schema readiness
+npm run migrate          # Execute full batch migration with 1:1 relational mapping
+npm run migrate:validate # Run 5-pillar validation audit
+```
+
+#### 3. Run Backend (Node.js/Express on Port 8080)
+```bash
+cd backend-node
+npm install
+npm start        # or npm run dev (hot reload)
+npm test         # Run complete 163-test automated test suite
+```
+
+The API starts at **http://localhost:8080/api**  
+Health check: http://localhost:8080/health  
+Readiness check: http://localhost:8080/ready  
+
+#### 4. Run Frontend (React/Vite on Port 3000)
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+The app opens at **http://localhost:3000**.  
+All requests to `/api`, `/uploads`, and WebSocket connections (`/api/ws-native`, `/socket.io`) are proxied automatically to the Express backend on port 8080 without CORS issues or breaking changes.
 ├── mapper/          # Entity ↔ DTO converters
 ├── notification/    # SSE emitters + notification service
 ├── payment/         # Razorpay + refund service

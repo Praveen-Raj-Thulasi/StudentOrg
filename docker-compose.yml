@@ -1,4 +1,73 @@
+# =============================================================================
+# CollegeEvents — Multi-Container Docker Compose Configuration
+# Supports both legacy stack (Java/MySQL/pgvector) and target migration stack (Node.js/MongoDB).
+#
+# To start MongoDB for backend-node development:
+#   docker compose up -d mongo
+#
+# To start the complete Node.js stack with MongoDB:
+#   docker compose --profile node up -d
+#
+# To start legacy Java/MySQL stack:
+#   docker compose up -d mysql mongo pgvector
+# =============================================================================
+
 services:
+  # ── Target Migration Database: MongoDB ─────────────────────────────────────
+  mongo:
+    image: mongo:7
+    container_name: eventbooking-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Node.js Express Migration Backend (Optional Containerized Profile) ─────
+  backend-node:
+    build:
+      context: ./backend-node
+      dockerfile: Dockerfile
+    container_name: eventbooking-backend-node
+    profiles: ["node", "all"]
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      MONGODB_URI: mongodb://mongo:27017/event_booking_db
+      FRONTEND_URL: http://localhost:3000
+      CORS_ORIGIN: http://localhost:3000
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:8080/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  # ── React Vite Frontend Container (Production Profile) ──────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: eventbooking-frontend
+    profiles: ["node", "all"]
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      backend-node:
+        condition: service_healthy
+
+  # ── Legacy Primary Database: MySQL 8 (Retained for Java Reference) ─────────
   mysql:
     image: mysql:8
     container_name: eventbooking-mysql
@@ -16,20 +85,7 @@ services:
       timeout: 5s
       retries: 5
 
-  mongo:
-    image: mongo:7
-    container_name: eventbooking-mongo
-    restart: unless-stopped
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
+  # ── Legacy Vector Database: PGVector (Retained for Reference) ──────────────
   pgvector:
     image: pgvector/pgvector:pg16
     container_name: eventbooking-pgvector
@@ -49,7 +105,8 @@ services:
       timeout: 5s
       retries: 5
 
+# ── Persistent Storage Volumes (All Preserved) ───────────────────────────────
 volumes:
-  mysql_data:
   mongo_data:
+  mysql_data:
   pgvector_data:

@@ -1,0 +1,121 @@
+{
+  "mode": "LIVE",
+  "batchSize": 250,
+  "startedAt": "2026-10-10T21:48:11.602Z",
+  "completedAt": "2026-10-10T21:48:12.215Z",
+  "totalDurationMs": 613,
+  "tables": {
+    "users": {
+      "sourceCount": 10,
+      "migratedCount": 0,
+      "updatedCount": 10,
+      "skippedCount": 0,
+      "errorCount": 0,
+      "maxId": 10
+    },
+    "organizers": {
+      "sourceCount": 5,
+      "migratedCount": 0,
+      "updatedCount": 5,
+      "skippedCount": 0,
+      "errorCount": 0,
+      "maxId": 5
+    },
+    "events": {
+      "sourceCount": 5,
+      "migratedCount": 0,
+      "updatedCount": 5,
+      "skippedCount": 0,
+      "errorCount": 0,
+      "maxId": 5
+    },
+    "bookings": {
+      "sourceCount": 6,
+      "migratedCount": 0,
+      "updatedCount": 6,
+      "skippedCount": 0,
+      "errorCount": 0,
+      "maxId": 9
+    },
+    "payments": {
+      "sourceCount": 5,
+      "migratedCount": 0,
+      "updatedCount": 5,
+      "skippedCount": 0,
+      "errorCount": 0,
+      "maxId": 5
+    },
+    "refunds": {
+      "sourceCount": 0,
+      "migratedCount": 0,
+      "updatedCount": 0,
+      "skippedCount": 0,
+      "errorCount": 0,
+      "maxId": 0
+    },
+    "certificates": {
+      "sourceCount": 0,
+      "migratedCount": 0,
+      "updatedCount": 0,
+      "skippedCount": 0,
+      "errorCount": 0,
+      "maxId": 0
+    },
+    "attendance": {
+      "sourceCount": 0,
+      "migratedCount": 0,
+      "updatedCount": 0,
+      "skippedCount": 0,
+      "errorCount": 0,
+      "maxId": 0
+    },
+    "event_ratings": {
+      "sourceCount": 0,
+      "migratedCount": 0,
+      "updatedCount": 0,
+      "skippedCount": 0,
+      "errorCount": 0,
+      "maxId": 0
+    },
+    "networking_connections": {
+      "sourceCount": 8,
+      "migratedCount": 0,
+      "updatedCount": 8,
+      "skippedCount": 0,
+      "errorCount": 0,
+      "maxId": 8
+    },
+    "direct_messages": {
+      "sourceCount": 6,
+      "migratedCount": 0,
+      "updatedCount": 6,
+      "skippedCount": 0,
+      "errorCount": 0,
+      "maxId": 6
+    },
+    "organizer_scores": {
+      "sourceCount": 5,
+      "migratedCount": 5,
+      "updatedCount": 0,
+      "skippedCount": 0,
+      "errorCount": 0,
+      "maxId": 5
+    },
+    "user_interests": {
+      "sourceCount": 5,
+      "migratedCount": 5,
+      "updatedCount": 0,
+      "skippedCount": 0,
+      "errorCount": 0,
+      "maxId": 5
+    }
+  },
+  "overallStats": {
+    "totalSourceRows": 55,
+    "totalMigrated": 10,
+    "totalUpdated": 45,
+    "totalSkipped": 0,
+    "totalErrors": 0
+  },
+  "errors": []
+}

@@ -44,20 +44,50 @@ export default function OrganizerDashboard() {
   }));
 
   const totalEvents = dashboard?.totalEvents ?? events?.totalElements ?? eventList.length;
-  const totalRevenue = dashboard?.totalRevenue ?? eventList.reduce((sum, event) => {
-    const soldSeats = Math.max(0, Number(event.totalSeats ?? 0) - Number(event.availableSeats ?? 0));
-    return sum + soldSeats * Number(event.ticketPrice ?? 0);
-  }, 0);
-  const totalAttendees = eventList.reduce((sum, event) => {
-    const soldSeats = Math.max(0, Number(event.totalSeats ?? 0) - Number(event.availableSeats ?? 0));
-    return sum + soldSeats;
-  }, 0);
+  const publishedEvents = dashboard?.publishedEvents ?? eventList.filter((e) => e.status === 'PUBLISHED').length;
+  const upcomingEvents = dashboard?.upcomingEvents ?? 0;
+  const draftEvents = dashboard?.draftEvents ?? eventList.filter((e) => e.status === 'DRAFT').length;
+  const completedEvents = dashboard?.completedEvents ?? eventList.filter((e) => e.status === 'COMPLETED').length;
+  const netRevenue = dashboard?.revenueSummary?.netRecordedRevenue ?? dashboard?.totalRevenue ?? 0;
+  const grossBookings = dashboard?.revenueSummary?.grossBookingsAmount ?? 0;
+  const totalRefunds = dashboard?.revenueSummary?.totalRefunds ?? 0;
+  const verifiedAttendance = dashboard?.verifiedAttendance ?? 0;
+  const bookedCapacity = dashboard?.capacity?.bookedCapacity ?? 0;
+  const totalCapacity = dashboard?.capacity?.totalCapacity ?? 0;
+  const availableCapacity = dashboard?.capacity?.availableCapacity ?? 0;
+  const totalDuties = dashboard?.volunteerCoordination?.totalVolunteerDuties ?? 0;
+  const pendingDuties = dashboard?.volunteerCoordination?.pendingVolunteerDuties ?? 0;
+  const completedDuties = dashboard?.volunteerCoordination?.completedVolunteerDuties ?? 0;
 
   const stats = [
-    { label: 'Total Events', value: totalEvents, icon: <FiCalendar />, cls: 'text-blue-600 bg-blue-50 border-blue-100' },
-    { label: 'Total Revenue', value: `Rs. ${Number(totalRevenue ?? 0).toLocaleString()}`, icon: <FiDollarSign />, cls: 'text-green-600 bg-green-50 border-green-100' },
-    { label: 'Active Events', value: eventList.filter((event) => event.status === 'PUBLISHED').length, icon: <FiTrendingUp />, cls: 'text-violet-600 bg-violet-50 border-violet-100' },
-    { label: 'Total Attendees', value: totalAttendees, icon: <FiUsers />, cls: 'text-amber-600 bg-amber-50 border-amber-100' },
+    {
+      label: 'Events Portfolio',
+      value: totalEvents,
+      sub: `${publishedEvents} Published • ${upcomingEvents} Upcoming`,
+      icon: <FiCalendar />,
+      cls: 'text-blue-600 bg-blue-50 border-blue-100',
+    },
+    {
+      label: 'Net Recorded Revenue',
+      value: `Rs. ${Number(netRevenue).toLocaleString()}`,
+      sub: `Gross: Rs. ${Number(grossBookings).toLocaleString()} | Refunds: Rs. ${Number(totalRefunds).toLocaleString()}`,
+      icon: <FiDollarSign />,
+      cls: 'text-green-600 bg-green-50 border-green-100',
+    },
+    {
+      label: 'Verified Attendance',
+      value: `${verifiedAttendance} Checked In`,
+      sub: `${bookedCapacity}/${totalCapacity} Booked (${availableCapacity} Avail)`,
+      icon: <FiUsers />,
+      cls: 'text-amber-600 bg-amber-50 border-amber-100',
+    },
+    {
+      label: 'Volunteer Coordination',
+      value: `${totalDuties} Duties`,
+      sub: `${pendingDuties} Pending • ${completedDuties} Verified`,
+      icon: <FiTrendingUp />,
+      cls: 'text-violet-600 bg-violet-50 border-violet-100',
+    },
   ];
 
   if (eLoading || (dLoading && !events)) return <Spinner full />;
@@ -70,7 +100,7 @@ export default function OrganizerDashboard() {
             <div>
               <p className="mb-2 text-xs font-black uppercase tracking-[0.22em] text-teal-200">Organizer Dashboard</p>
               <h1 className="text-3xl font-extrabold" style={{ fontFamily: 'Space Grotesk,sans-serif' }}>Welcome back, {user?.name || 'Organizer'}</h1>
-              <p className="mt-1 text-slate-200">Create events, track bookings, review attendees, and keep operations moving.</p>
+              <p className="mt-1 text-slate-200">Create events, track authoritative bookings, monitor verified attendance, and coordinate volunteers.</p>
             </div>
             <Link to="/organizer/events/create" className="inline-flex items-center justify-center gap-2 rounded-xl bg-teal-300 px-5 py-3 text-sm font-black text-teal-950 transition hover:bg-teal-200">
               <FiPlus /> Create Event
@@ -79,7 +109,8 @@ export default function OrganizerDashboard() {
           <div className="mt-6 flex flex-wrap gap-3">
             {[
               { to: '/organizer/events', label: 'My Events', icon: <FiList /> },
-              { to: '/organizer/attendees', label: 'Attendees', icon: <FiUsers /> },
+              { to: '/organizer/attendees', label: 'Attendees & Tickets', icon: <FiUsers /> },
+              { to: '/organizer/analytics', label: 'Analytics & Revenue', icon: <FiTrendingUp /> },
               { to: '/notifications', label: 'Notifications', icon: <FiBell /> },
               { to: '/events', label: 'Browse Public Events', icon: <FiCalendar /> },
             ].map((action) => (
@@ -90,12 +121,13 @@ export default function OrganizerDashboard() {
           </div>
         </motion.div>
 
-        <motion.div variants={stagger} initial="initial" animate="animate" className="mb-10 grid grid-cols-2 gap-5 lg:grid-cols-4">
+        <motion.div variants={stagger} initial="initial" animate="animate" className="mb-10 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((stat) => (
             <motion.div key={stat.label} variants={fadeUp} className="rounded-xl border bg-white p-5 shadow-card">
               <div className={`mb-3 grid h-10 w-10 place-items-center rounded-xl border ${stat.cls}`}>{stat.icon}</div>
-              <div className="text-3xl font-extrabold text-slate-950" style={{ fontFamily: 'Space Grotesk,sans-serif' }}>{stat.value}</div>
-              <div className="mt-0.5 text-xs font-semibold text-slate-500">{stat.label}</div>
+              <div className="text-2xl font-extrabold text-slate-950" style={{ fontFamily: 'Space Grotesk,sans-serif' }}>{stat.value}</div>
+              <div className="mt-0.5 text-xs font-semibold text-slate-600">{stat.label}</div>
+              {stat.sub && <div className="mt-1.5 text-[11px] font-medium text-slate-400">{stat.sub}</div>}
             </motion.div>
           ))}
         </motion.div>

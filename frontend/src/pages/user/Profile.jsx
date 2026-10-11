@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as yup from 'yup';
-import { userAPI } from '../../services/api';
+import { userAPI, membershipAPI, duesAPI } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
 import {
@@ -52,6 +52,7 @@ const SC=['','#EF5350','#FF9800','#FFCA28','#66BB6A','#00897B'];
 /* ── nav config ─────────────────────────────────────────── */
 const NAV = [
   { id:'overview',      label:'Profile Overview', icon:<FiUser/> },
+  { id:'membership',    label:'Club Membership',  icon:<MdVerified/> },
   { id:'edit',          label:'Edit Profile',     icon:<FiEdit3/> },
   { id:'bookings',      label:'Bookings',         icon:<FiCalendar/>,   href:'/bookings' },
   { id:'payments',      label:'Payments',         icon:<FiCreditCard/>, href:'/payments' },
@@ -126,9 +127,12 @@ function OverviewPanel({ profile }) {
         <InfoRow label="Full Name"    value={profile?.name} />
         <InfoRow label="Email"        value={profile?.email} />
         <InfoRow label="Phone"        value={profile?.phone} />
-        <InfoRow label="Role"         value={profile?.role} />
+        <InfoRow label="Role"         value={Array.isArray(profile?.roles) ? profile.roles.join(', ') : profile?.role} />
         <InfoRow label="Member Since" value={fmtDate(profile?.createdAt)} />
-        <InfoRow label="My ID"        value={profile?.userCode} green />
+        <InfoRow label="Member ID"    value={profile ? (profile.memberNumber || profile.userCode || '—') : 'Loading...'} green />
+        {profile?.userCode && profile?.memberNumber && profile?.userCode !== profile?.memberNumber && (
+          <InfoRow label="User Code"  value={profile.userCode} />
+        )}
       </div>
       <div className="bg-white rounded-2xl border border-slate-200 p-6">
         <h3 className="font-bold text-slate-900 mb-4">Quick Stats</h3>
@@ -271,6 +275,295 @@ function PreferencesPanel() {
   );
 }
 
+/* ── Membership Panel ────────────────────────────────────── */
+function MembershipPanel({ profile }) {
+  const qc = useQueryClient();
+  const { data: membershipData, isLoading, refetch } = useQuery(
+    'my-membership',
+    () => membershipAPI.getMy().then((r) => r.data?.data),
+    { refetchOnWindowFocus: false }
+  );
+
+  const [statement, setStatement] = useState('');
+  const [department, setDepartment] = useState(profile?.organizationName || '');
+  const [yearOfStudy, setYearOfStudy] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [payingDuesId, setPayingDuesId] = useState(null);
+
+  const handleApply = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await membershipAPI.apply({ statement, department, yearOfStudy });
+      toast.success('Membership application submitted for review!');
+      refetch();
+      qc.invalidateQueries('my-membership');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to submit application');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handlePayDues = async (duesId) => {
+    setPayingDuesId(duesId);
+    try {
+      const orderRes = await duesAPI.createOrder(duesId);
+      const orderData = orderRes.data?.data || orderRes.data;
+
+      if (orderData.displayAmount === 0 || orderData.status === 'PAID') {
+        toast.success('Membership dues settled successfully! Membership updated.');
+        refetch();
+        qc.invalidateQueries('my-membership');
+        return;
+      }
+
+      const loadRazorpayScript = () => {
+        return new Promise((resolve) => {
+          if (window.Razorpay) return resolve(true);
+          const s = document.createElement('script');
+          s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+          s.onload = () => resolve(true);
+          s.onerror = () => resolve(false);
+          document.body.appendChild(s);
+        });
+      };
+
+      const loaded = await loadRazorpayScript();
+      if (!loaded || !window.Razorpay) {
+        toast.error('Unable to initialize payment gateway.');
+        return;
+      }
+
+      const options = {
+        key: orderData.keyId,
+        amount: orderData.amount,
+        currency: orderData.currency || 'INR',
+        name: 'Skyline Student Association',
+        description: orderData.title || 'Membership Dues',
+        order_id: orderData.orderId,
+        handler: async (resp) => {
+          try {
+            await duesAPI.verify(duesId, {
+              razorpayOrderId: resp.razorpay_order_id,
+              razorpayPaymentId: resp.razorpay_payment_id,
+              razorpaySignature: resp.razorpay_signature,
+            });
+            toast.success('Membership dues settled successfully! Membership updated.');
+            refetch();
+            qc.invalidateQueries('my-membership');
+          } catch (err) {
+            toast.error(err.response?.data?.message || 'Payment verification failed');
+          }
+        },
+        theme: {
+          color: '#4f46e5',
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', (resp) => {
+        toast.error(resp.error?.description || 'Payment failed');
+      });
+      rzp.open();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to initiate dues payment');
+    } finally {
+      setPayingDuesId(null);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-500">
+        Loading membership details...
+      </div>
+    );
+  }
+
+  const status = membershipData?.status || 'NOT_APPLIED';
+  const dues = membershipData?.dues || { totalAssessed: 0, totalPaid: 0, outstandingBalance: 0, items: [] };
+
+  const statusBadge = {
+    NOT_APPLIED: { bg: 'bg-slate-100 text-slate-700', label: 'Not Applied' },
+    PENDING:     { bg: 'bg-amber-100 text-amber-800', label: 'Under Review' },
+    APPROVED:    { bg: 'bg-blue-100 text-blue-800', label: 'Approved (Pending Dues)' },
+    ACTIVE:      { bg: 'bg-emerald-100 text-emerald-800', label: 'Active Member' },
+    REJECTED:    { bg: 'bg-red-100 text-red-800', label: 'Application Rejected' },
+    SUSPENDED:   { bg: 'bg-rose-100 text-rose-800', label: 'Suspended' },
+    EXPIRED:     { bg: 'bg-gray-100 text-gray-800', label: 'Expired' },
+  }[status] || { bg: 'bg-slate-100 text-slate-700', label: status };
+
+  return (
+    <div className="space-y-6">
+      {/* Association Status Card */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h3 className="text-xl font-bold text-slate-900">Skyline Student Association Membership</h3>
+            <p className="text-sm text-slate-500 mt-0.5">
+              Member ID: <span className="font-semibold text-emerald-700">{membershipData?.memberNumber || profile?.memberNumber || '—'}</span>
+            </p>
+          </div>
+          <span className={`rounded-full px-3 py-1 text-xs font-bold ${statusBadge.bg}`}>
+            {statusBadge.label}
+          </span>
+        </div>
+
+        {status === 'ACTIVE' && (
+          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+            <div className="flex items-center gap-3">
+              <MdVerified className="h-6 w-6 text-emerald-600" />
+              <div>
+                <p className="font-bold text-emerald-900">Official Association Member</p>
+                <p className="text-xs text-emerald-700">
+                  Your membership is active and in good standing.
+                  {membershipData?.validUntil && ` Valid until ${new Date(membershipData.validUntil).toLocaleDateString()}.`}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {status === 'APPROVED' && (
+          <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4">
+            <p className="font-bold text-blue-900">Application Approved by President</p>
+            <p className="text-xs text-blue-700 mt-1">
+              Please settle any outstanding membership dues below to complete active onboarding.
+            </p>
+          </div>
+        )}
+
+        {status === 'PENDING' && (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <p className="font-bold text-amber-900">Application Under Review</p>
+            <p className="text-xs text-amber-700 mt-1">
+              Your application was received on {membershipData?.appliedAt ? new Date(membershipData.appliedAt).toLocaleDateString() : 'recently'}. The President is reviewing your submission.
+            </p>
+          </div>
+        )}
+
+        {status === 'REJECTED' && (
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4">
+            <p className="font-bold text-red-900">Application Decision</p>
+            <p className="text-xs text-red-700 mt-1">
+              {membershipData?.rejectionReason || 'Your application was not approved at this time.'}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Application Form (Visible if NOT_APPLIED or REJECTED) */}
+      {(status === 'NOT_APPLIED' || status === 'REJECTED') && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h4 className="text-lg font-bold text-slate-900">Apply for Student Association Membership</h4>
+          <p className="text-sm text-slate-500 mt-1 mb-4">
+            Join the Skyline Student Association to access exclusive events, governance voting, and club opportunities.
+          </p>
+          <form onSubmit={handleApply} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1">Academic Department / Major</label>
+              <input
+                type="text"
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                placeholder="e.g. Computer Science & Engineering"
+                className="input-field w-full rounded-lg border border-slate-300 p-2.5 text-sm"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1">Year of Study</label>
+              <input
+                type="text"
+                value={yearOfStudy}
+                onChange={(e) => setYearOfStudy(e.target.value)}
+                placeholder="e.g. 2nd Year / Class of 2027"
+                className="input-field w-full rounded-lg border border-slate-300 p-2.5 text-sm"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1">Statement of Interest</label>
+              <textarea
+                value={statement}
+                onChange={(e) => setStatement(e.target.value)}
+                rows={3}
+                placeholder="Tell the association about your interests, clubs you want to participate in, and why you wish to join..."
+                className="input-field w-full rounded-lg border border-slate-300 p-2.5 text-sm"
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="btn-primary rounded-xl px-5 py-2.5 text-sm font-bold disabled:opacity-60"
+            >
+              {submitting ? 'Submitting Application...' : 'Submit Membership Application'}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* Dues & Obligations Ledger */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h4 className="text-lg font-bold text-slate-900">Membership Dues & Financial Obligations</h4>
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-semibold text-slate-500">
+              Outstanding: <span className="text-sm font-bold text-slate-900">₹{dues.outstandingBalance}</span>
+            </span>
+            <span className="text-xs font-semibold text-slate-500">
+              Total Paid: <span className="text-sm font-bold text-emerald-600">₹{dues.totalPaid}</span>
+            </span>
+          </div>
+        </div>
+
+        {dues.items.length === 0 ? (
+          <p className="text-sm text-slate-400 py-2">No dues assessed on this account.</p>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {dues.items.map((item) => (
+              <div key={item.id} className="py-3 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-slate-800 text-sm">{item.title}</p>
+                  <p className="text-xs text-slate-400">
+                    Term: {item.academicTerm} · Due: {new Date(item.dueDate).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-bold text-slate-900 text-sm">₹{item.amount}</span>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                      item.status === 'PAID'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : item.status === 'WAIVED'
+                        ? 'bg-slate-100 text-slate-600'
+                        : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    {item.status}
+                  </span>
+                  {(item.status === 'PENDING' || item.status === 'OVERDUE') && (
+                    <button
+                      type="button"
+                      disabled={payingDuesId === item.id}
+                      onClick={() => handlePayDues(item.id)}
+                      className="btn-primary rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-50"
+                    >
+                      {payingDuesId === item.id ? 'Processing...' : 'Pay Dues'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ── Main ───────────────────────────────────────────────── */
 export default function UserProfile() {
   const [active, setActive] = useState('overview');
@@ -331,8 +624,8 @@ export default function UserProfile() {
           {/* ID card */}
           <div className="shrink-0 rounded-xl border border-slate-200 bg-slate-50 px-5 py-3 min-w-[150px] text-center">
             <p className="text-xs text-slate-400 font-medium mb-1">My ID</p>
-            <p className="text-2xl font-extrabold text-emerald-600 tracking-wide">{profile?.userCode || '—'}</p>
-            <p className="text-xs text-slate-400 mt-0.5">User ID</p>
+            <p className="text-2xl font-extrabold text-emerald-600 tracking-wide">{profile?.memberNumber || profile?.userCode || '—'}</p>
+            <p className="text-xs text-slate-400 mt-0.5">Member Number</p>
           </div>
         </div>
 
@@ -368,6 +661,7 @@ export default function UserProfile() {
               initial={{opacity:0,x:10}} animate={{opacity:1,x:0}} exit={{opacity:0,x:-10}}
               transition={{duration:0.2}}>
               {active==='overview'    && <OverviewPanel profile={profile}/>}
+              {active==='membership'  && <MembershipPanel profile={profile}/>}
               {active==='edit'        && <EditPanel profile={profile} refetch={refetch}/>}
               {active==='security'    && <SecurityPanel/>}
               {active==='preferences' && <PreferencesPanel/>}

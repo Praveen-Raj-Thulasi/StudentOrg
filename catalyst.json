@@ -1,0 +1,11 @@
+{
+  "appsail": [
+    {
+      "source": "backend",
+      "name": "event-booking-backend"
+    }
+  ],
+  "client": {
+    "source": "client"
+  }
+}

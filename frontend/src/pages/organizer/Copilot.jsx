@@ -1,3 +1,4 @@
+import { toast } from 'react-toastify';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { aiAPI, analyticsAPI, chatbotAPI } from '../../services/api';
@@ -17,7 +18,7 @@ function useVoice({ onTranscript, enabled }) {
 
   const startListening = useCallback(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) { alert('Speech recognition not supported in this browser.'); return; }
+    if (!SpeechRecognition) { toast.warning('Speech recognition is not supported in this browser.', { toastId: 'speech-rec' }); return; }
     const rec = new SpeechRecognition();
     rec.lang = 'en-IN';
     rec.interimResults = false;

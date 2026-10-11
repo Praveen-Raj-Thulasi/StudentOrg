@@ -1,4 +1,4 @@
-﻿import { Suspense, lazy } from 'react';
+import { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -22,6 +22,7 @@ const BookingDetail    = lazy(() => import('./pages/user/BookingDetail'));
 const PaymentCheckout  = lazy(() => import('./pages/user/PaymentCheckout'));
 const UserProfile      = lazy(() => import('./pages/user/Profile'));
 const Notifications    = lazy(() => import('./pages/user/Notifications'));
+const Merchandise      = lazy(() => import('./pages/user/Merchandise'));
 const PaymentHistory   = lazy(() => import('./pages/user/PaymentHistory'));
 const RefundTracking   = lazy(() => import('./pages/user/RefundTracking'));
 const QueueStatus      = lazy(() => import('./pages/user/QueueStatus'));
@@ -46,8 +47,14 @@ const ScannerRelay     = lazy(() => import('./pages/organizer/ScannerRelay'));
 
 const AdminDashboard   = lazy(() => import('./pages/admin/Dashboard'));
 const AdminApprovals   = lazy(() => import('./pages/admin/Approvals'));
+const RoleManagement   = lazy(() => import('./pages/admin/RoleManagement'));
+const AuditLogs        = lazy(() => import('./pages/admin/AuditLogs'));
 const AIInsights       = lazy(() => import('./pages/admin/AIInsights'));
 const AdminCertificates = lazy(() => import('./pages/admin/Certificates'));
+const AdminAnnouncements = lazy(() => import('./pages/admin/Announcements'));
+
+const TreasurerDashboard = lazy(() => import('./pages/treasurer/Dashboard'));
+const VolunteerDashboard = lazy(() => import('./pages/volunteer/Dashboard'));
 
 const NotFound         = lazy(() => import('./pages/NotFound'));
 
@@ -66,15 +73,86 @@ function Wrap({ children }) {
 function PrivateRoute({ children, roles }) {
   const { user, loading } = useAuth();
   if (loading) return <Spinner full />;
-  if (!user)   return <Navigate to="/login" replace />;
-  if (roles && !roles.includes(user.role)) return <Navigate to="/" replace />;
+  if (!user) {
+    const isPresidentRoute = roles && (roles.includes('ADMIN') || roles.includes('PRESIDENT'));
+    if (isPresidentRoute) {
+      return <Navigate to="/admin/login" replace />;
+    }
+    const isOrgRoute = roles && roles.includes('ORGANIZER');
+    if (isOrgRoute) {
+      return <Navigate to="/login?role=organizer" replace />;
+    }
+    const isTreasurerRoute = roles && roles.includes('TREASURER');
+    if (isTreasurerRoute) {
+      return <Navigate to="/login?role=treasurer" replace />;
+    }
+    const isVolunteerRoute = roles && roles.includes('VOLUNTEER');
+    if (isVolunteerRoute) {
+      return <Navigate to="/login?role=volunteer" replace />;
+    }
+    return <Navigate to="/login" replace />;
+  }
+
+  if (roles && roles.length > 0) {
+    const userRoleList = [
+      (user.role || '').toUpperCase(),
+      ...(Array.isArray(user.roles) ? user.roles : []).map((r) => String(r).toUpperCase()),
+    ];
+
+    // Expand role aliases for seamless compatibility
+    const effectiveRoles = new Set(userRoleList);
+    if (effectiveRoles.has('STUDENT')) effectiveRoles.add('USER');
+    if (effectiveRoles.has('USER'))    effectiveRoles.add('STUDENT');
+    if (effectiveRoles.has('PRESIDENT')) effectiveRoles.add('ADMIN');
+    if (effectiveRoles.has('ADMIN'))     effectiveRoles.add('PRESIDENT');
+
+    const allowed = roles.map((r) => String(r).toUpperCase());
+    const hasPermission = allowed.some((r) => effectiveRoles.has(r));
+
+    if (!hasPermission) {
+      if (effectiveRoles.has('PRESIDENT')) return <Navigate to="/admin/dashboard" replace />;
+      if (effectiveRoles.has('ORGANIZER')) return <Navigate to="/organizer/dashboard" replace />;
+      if (effectiveRoles.has('TREASURER')) return <Navigate to="/treasurer/dashboard" replace />;
+      if (effectiveRoles.has('VOLUNTEER')) return <Navigate to="/volunteer/dashboard" replace />;
+      return <Navigate to="/dashboard" replace />;
+    }
+  }
   return children;
 }
 
-function GuestRoute({ children }) {
+function MinimalPortalPlaceholder({ title, roleName, description, icon }) {
+  return (
+    <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 text-center max-w-lg mx-auto">
+      <div className="w-16 h-16 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center mb-4 text-3xl shadow-sm">
+        {icon}
+      </div>
+      <h1 className="text-2xl font-bold text-gray-900 mb-2">{title}</h1>
+      <p className="text-gray-600 mb-6 text-sm">
+        {description}
+      </p>
+      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+        Active Role: {roleName}
+      </div>
+    </div>
+  );
+}
+
+function GuestRoute({ children, allowSwitch = false }) {
   const { user, loading } = useAuth();
   if (loading) return <Spinner full />;
-  if (user) return <Navigate to={user.role === 'ADMIN' ? '/admin/dashboard' : user.role === 'ORGANIZER' ? '/organizer/dashboard' : '/dashboard'} replace />;
+  if (user) {
+    const userRoleList = [
+      (user.role || '').toUpperCase(),
+      ...(Array.isArray(user.roles) ? user.roles : []).map((r) => String(r).toUpperCase()),
+    ];
+    if (userRoleList.includes('PRESIDENT') || userRoleList.includes('ADMIN')) return <Navigate to="/admin/dashboard" replace />;
+    if (!allowSwitch) {
+      if (userRoleList.includes('ORGANIZER')) return <Navigate to="/organizer/dashboard" replace />;
+      if (userRoleList.includes('TREASURER')) return <Navigate to="/treasurer/dashboard" replace />;
+      if (userRoleList.includes('VOLUNTEER')) return <Navigate to="/volunteer/dashboard" replace />;
+      return <Navigate to="/dashboard" replace />;
+    }
+  }
   return children;
 }
 
@@ -96,6 +174,8 @@ function AppRoutes() {
 
           {/* Auth */}
           <Route path="/login"           element={<GuestRoute><Wrap><Login /></Wrap></GuestRoute>} />
+          <Route path="/admin/login"     element={<GuestRoute allowSwitch={true}><Wrap><Login defaultPortal="president" isDedicatedPresident={true} /></Wrap></GuestRoute>} />
+          <Route path="/president/login" element={<GuestRoute allowSwitch={true}><Wrap><Login defaultPortal="president" isDedicatedPresident={true} /></Wrap></GuestRoute>} />
           <Route path="/register"        element={<GuestRoute><Wrap><Register /></Wrap></GuestRoute>} />
           <Route path="/forgot-password" element={<GuestRoute><Wrap><ForgotPassword /></Wrap></GuestRoute>} />
           <Route path="/reset-password"  element={<GuestRoute><Wrap><ResetPassword /></Wrap></GuestRoute>} />
@@ -106,6 +186,7 @@ function AppRoutes() {
           {/* User */}
           <Route path="/dashboard"     element={<PrivateRoute roles={['USER']}><Wrap><UserDashboard /></Wrap></PrivateRoute>} />
           <Route path="/bookings"      element={<PrivateRoute roles={['USER']}><Wrap><MyBookings /></Wrap></PrivateRoute>} />
+          <Route path="/merchandise"   element={<PrivateRoute roles={['USER']}><Wrap><Merchandise /></Wrap></PrivateRoute>} />
           <Route path="/bookings/:id"  element={<PrivateRoute roles={['USER']}><Wrap><BookingDetail /></Wrap></PrivateRoute>} />
           <Route path="/checkout/:bookingId" element={<PrivateRoute roles={['USER']}><Wrap><PaymentCheckout /></Wrap></PrivateRoute>} />
           <Route path="/profile"       element={<PrivateRoute roles={['USER']}><Wrap><UserProfile /></Wrap></PrivateRoute>} />
@@ -129,11 +210,24 @@ function AppRoutes() {
           <Route path="/organizer/copilot"         element={<PrivateRoute roles={['ORGANIZER']}><Wrap><OrgCopilot /></Wrap></PrivateRoute>} />
           <Route path="/organizer/certificates"    element={<PrivateRoute roles={['ORGANIZER']}><Wrap><OrgCertificates /></Wrap></PrivateRoute>} />
 
-          {/* Admin */}
-          <Route path="/admin/dashboard"           element={<PrivateRoute roles={['ADMIN']}><Wrap><AdminDashboard /></Wrap></PrivateRoute>} />
-          <Route path="/admin/approvals"           element={<PrivateRoute roles={['ADMIN']}><Wrap><AdminApprovals /></Wrap></PrivateRoute>} />
-          <Route path="/admin/ai-insights"         element={<PrivateRoute roles={['ADMIN']}><Wrap><AIInsights /></Wrap></PrivateRoute>} />
-          <Route path="/admin/certificates"        element={<PrivateRoute roles={['ADMIN']}><Wrap><AdminCertificates /></Wrap></PrivateRoute>} />
+          {/* Admin / President */}
+          <Route path="/admin/dashboard"           element={<PrivateRoute roles={['ADMIN', 'PRESIDENT']}><Wrap><AdminDashboard /></Wrap></PrivateRoute>} />
+          <Route path="/admin/announcements"       element={<PrivateRoute roles={['ADMIN', 'PRESIDENT']}><Wrap><AdminAnnouncements /></Wrap></PrivateRoute>} />
+          <Route path="/admin/approvals"           element={<PrivateRoute roles={['ADMIN', 'PRESIDENT']}><Wrap><AdminApprovals /></Wrap></PrivateRoute>} />
+          <Route path="/admin/roles"               element={<PrivateRoute roles={['ADMIN', 'PRESIDENT']}><Wrap><RoleManagement /></Wrap></PrivateRoute>} />
+          <Route path="/admin/audit-logs"          element={<PrivateRoute roles={['ADMIN', 'PRESIDENT']}><Wrap><AuditLogs /></Wrap></PrivateRoute>} />
+          <Route path="/admin/ai-insights"         element={<PrivateRoute roles={['ADMIN', 'PRESIDENT']}><Wrap><AIInsights /></Wrap></PrivateRoute>} />
+          <Route path="/admin/certificates"        element={<PrivateRoute roles={['ADMIN', 'PRESIDENT']}><Wrap><AdminCertificates /></Wrap></PrivateRoute>} />
+
+          {/* Treasurer Portal */}
+          <Route path="/treasurer/dashboard"       element={<PrivateRoute roles={['TREASURER']}><Wrap><TreasurerDashboard /></Wrap></PrivateRoute>} />
+          <Route path="/treasurer/dues"            element={<PrivateRoute roles={['TREASURER']}><Wrap><TreasurerDashboard /></Wrap></PrivateRoute>} />
+          <Route path="/treasurer/reports"         element={<PrivateRoute roles={['TREASURER']}><Wrap><TreasurerDashboard /></Wrap></PrivateRoute>} />
+
+          {/* Volunteer Portal */}
+          <Route path="/volunteer/dashboard"       element={<PrivateRoute roles={['VOLUNTEER']}><Wrap><VolunteerDashboard /></Wrap></PrivateRoute>} />
+          <Route path="/volunteer/tasks"           element={<PrivateRoute roles={['VOLUNTEER']}><Wrap><VolunteerDashboard /></Wrap></PrivateRoute>} />
+          <Route path="/volunteer/duties"          element={<PrivateRoute roles={['VOLUNTEER']}><Wrap><VolunteerDashboard /></Wrap></PrivateRoute>} />
         </Route>
         {/* External scanner relay — no layout, no auth guard, token is in URL query */}
         <Route path="/scanner-relay" element={<Wrap><ScannerRelay /></Wrap>} />

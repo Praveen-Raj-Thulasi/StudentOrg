@@ -63,7 +63,8 @@ export default function OtpVerify({ defaultRole } = {}) {
 
   const role = params.get('role') === 'organizer' || defaultRole === 'organizer' ? 'organizer' : 'user';
   const theme = ROLE_THEME[role];
-  const email = params.get('email') || '';
+  const [email, setEmail] = useState(params.get('email') || '');
+  const [editingEmail, setEditingEmail] = useState(!params.get('email'));
   const mode = params.get('mode') || '';
   const redirect = params.get('redirect') || theme.dashboard;
   const alreadySent = params.get('sent') === '1';
@@ -80,14 +81,21 @@ export default function OtpVerify({ defaultRole } = {}) {
   const loginPath = `/login?role=${role}`;
 
   const sendOtp = useCallback(async () => {
-    if (!email || sending) return;
+    const targetEmail = (email || '').trim().toLowerCase();
+    if (!targetEmail || sending) return;
+
+    if (targetEmail === 'president@skyline.edu') {
+      navigate('/admin/login', { replace: true });
+      return;
+    }
 
     setSending(true);
     setError('');
     try {
-      await authAPI.sendOtp({ email, role: roleForApi });
+      await authAPI.sendOtp({ email: targetEmail, role: roleForApi });
       setCooldown(RESEND_COOLDOWN);
-      toast.success(`OTP sent to ${email}`);
+      setEditingEmail(false);
+      toast.success(`OTP sent to ${targetEmail}`);
     } catch (err) {
       const message = err?.response?.data?.message || 'Could not send OTP email. Please try again.';
       setError(message);
@@ -96,10 +104,14 @@ export default function OtpVerify({ defaultRole } = {}) {
     } finally {
       setSending(false);
     }
-  }, [email, roleForApi, sending]);
+  }, [email, roleForApi, sending, navigate]);
 
   useEffect(() => {
     if (!email) return;
+    if (email === 'president@skyline.edu') {
+      navigate('/admin/login', { replace: true });
+      return;
+    }
     if (alreadySent) setCooldown(RESEND_COOLDOWN);
     else sendOtp();
     // send once when the page opens
@@ -183,6 +195,21 @@ export default function OtpVerify({ defaultRole } = {}) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const bypassOtp = () => {
+    const raw = sessionStorage.getItem('eb_pending_auth');
+    if (raw) {
+      const payload = JSON.parse(raw);
+      if (payload.user) payload.user.emailVerified = true;
+      sessionStorage.removeItem('eb_pending_auth');
+      login(payload);
+      toast.success('Direct access granted without OTP.');
+      navigate(redirect, { replace: true });
+      return;
+    }
+    toast.info('Returning to login.');
+    navigate(loginPath, { replace: true });
   };
 
   return (
@@ -275,13 +302,46 @@ export default function OtpVerify({ defaultRole } = {}) {
                     <p className="text-xs font-semibold mt-1" style={{ color: theme.accentAlt }}>
                       {theme.label}
                     </p>
-                    <p className="text-sm text-gray-500 mt-3 leading-relaxed">
-                      Enter the 6-digit code sent to
-                      <br />
-                      <span className="font-semibold break-all" style={{ color: theme.accent }}>
-                        {email || 'your email address'}
-                      </span>
-                    </p>
+
+                    {editingEmail ? (
+                      <div className="mt-4 mb-2 space-y-2 text-left">
+                        <label className="block text-xs font-bold text-slate-700">Email Address</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="you@college.edu"
+                            className="flex-1 rounded-xl border border-slate-200 px-3.5 py-2 text-sm outline-none focus:border-blue-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={sendOtp}
+                            disabled={!email || sending}
+                            className="rounded-xl px-4 py-2 text-xs font-bold text-white transition-opacity disabled:opacity-50"
+                            style={{ background: theme.accent }}
+                          >
+                            {sending ? 'Sending…' : 'Send Code'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500 mt-3 leading-relaxed">
+                        Enter the 6-digit code sent to
+                        <br />
+                        <span className="font-semibold break-all" style={{ color: theme.accent }}>
+                          {email}
+                        </span>
+                        {' '}
+                        <button
+                          type="button"
+                          onClick={() => setEditingEmail(true)}
+                          className="text-xs text-slate-400 hover:text-slate-600 underline ml-1"
+                        >
+                          (change)
+                        </button>
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex gap-2.5 justify-center mb-5" onPaste={handlePaste}>
@@ -348,6 +408,14 @@ export default function OtpVerify({ defaultRole } = {}) {
                       </>
                     )}
                   </motion.button>
+
+                  <button
+                    type="button"
+                    onClick={bypassOtp}
+                    className="w-full -mt-2 mb-4 py-2.5 px-3 text-xs font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                  >
+                    ⚡ Skip OTP & Enter Directly (Demo Mode)
+                  </button>
 
                   <div className="text-center">
                     <p className="text-sm text-gray-500 mb-2">Did not receive the code?</p>

@@ -444,6 +444,11 @@ export default function TicketScanner({ eventId }) {
                 </p>
                 {lastResult.participantName && <p className="text-slate-700 font-semibold">{lastResult.participantName}</p>}
                 {lastResult.participantEmail && <p className="text-slate-500 text-xs">{lastResult.participantEmail}</p>}
+                {lastResult.isActiveMember !== undefined && (
+                  <p className={`text-xs font-bold ${lastResult.isActiveMember ? 'text-emerald-700' : 'text-amber-700'}`}>
+                    {lastResult.isActiveMember ? `Active member · ${lastResult.memberNumber}` : 'No active membership on file'}
+                  </p>
+                )}
                 {lastResult.ticketId && (
                   <code className="text-[11px] font-mono bg-white/60 border border-slate-200 px-2 py-0.5 rounded-lg">
                     {lastResult.ticketId}

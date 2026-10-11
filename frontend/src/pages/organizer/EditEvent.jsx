@@ -33,7 +33,10 @@ export default function EditEvent() {
       location:     event.location,
       googleMapsUrl:event.googleMapsUrl,
       ticketPrice:  event.ticketPrice,
+      memberTicketPrice: event.memberTicketPrice,
       totalSeats:   event.totalSeats,
+      volunteerCapacity: event.volunteerCapacity,
+      volunteerCategoriesStr: Array.isArray(event.volunteerCategories) ? event.volunteerCategories.join(', ') : '',
       tags:         event.tags,
       status:       event.status,
       visibility:   event.visibility,
@@ -143,7 +146,10 @@ export default function EditEvent() {
           visibility: publishedLocked ? event.visibility : cleaned.visibility,
           status: publishedLocked ? event.status : cleaned.status,
           ticketPrice: publishedLocked ? Number(event.ticketPrice) : Number(d.ticketPrice),
+          memberTicketPrice: publishedLocked ? (event.memberTicketPrice ? Number(event.memberTicketPrice) : null) : (d.memberTicketPrice ? Number(d.memberTicketPrice) : null),
           totalSeats: publishedLocked ? Number(event.totalSeats) : Number(d.totalSeats),
+          volunteerCapacity: publishedLocked ? Number(event.volunteerCapacity || 0) : Number(d.volunteerCapacity || 0),
+          volunteerCategories: publishedLocked ? (event.volunteerCategories || []) : (d.volunteerCategoriesStr ? d.volunteerCategoriesStr.split(',').map(s => s.trim()).filter(Boolean) : []),
           foodProvided: Boolean(d.foodProvided),
           accommodationProvided: Boolean(d.accommodationProvided),
           laptopRequired: Boolean(d.laptopRequired),
@@ -206,6 +212,18 @@ export default function EditEvent() {
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Ticket Price (₹)</label>
               <input {...register('ticketPrice')} type="number" min="0" step="0.01" disabled={publishedLocked} className={`input-field${lockedClass}`} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Member Ticket Price (₹)</label>
+              <input {...register('memberTicketPrice')} type="number" min="0" step="0.01" disabled={publishedLocked} className={`input-field${lockedClass}`} placeholder="Discounted for members" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Volunteer Capacity</label>
+              <input {...register('volunteerCapacity')} type="number" min="0" disabled={publishedLocked} className={`input-field${lockedClass}`} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Volunteer Categories</label>
+              <input {...register('volunteerCategoriesStr')} disabled={publishedLocked} className={`input-field${lockedClass}`} placeholder="Registration, Logistics..." />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">

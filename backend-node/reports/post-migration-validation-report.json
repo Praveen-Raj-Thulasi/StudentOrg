@@ -1,0 +1,132 @@
+{
+  "startedAt": "2026-10-10T21:48:12.232Z",
+  "completedAt": "2026-10-10T21:48:12.522Z",
+  "durationMs": 290,
+  "overallPass": true,
+  "pillar1_counts": [
+    {
+      "name": "Users Count Equality",
+      "status": "PASS",
+      "details": "MySQL: 10 | MongoDB: 10"
+    },
+    {
+      "name": "Organizers Count Equality",
+      "status": "PASS",
+      "details": "MySQL: 5 | MongoDB: 5"
+    },
+    {
+      "name": "Events Count Equality",
+      "status": "PASS",
+      "details": "MySQL: 5 | MongoDB: 5"
+    },
+    {
+      "name": "Bookings Count Equality",
+      "status": "PASS",
+      "details": "MySQL: 6 | MongoDB: 6"
+    },
+    {
+      "name": "Payments Count Equality",
+      "status": "PASS",
+      "details": "MySQL: 5 | MongoDB: 5"
+    },
+    {
+      "name": "Refunds Count Equality",
+      "status": "PASS",
+      "details": "MySQL: 0 | MongoDB: 0"
+    },
+    {
+      "name": "Certificates Count Equality",
+      "status": "PASS",
+      "details": "MySQL: 0 | MongoDB: 0"
+    },
+    {
+      "name": "Attendance Count Equality",
+      "status": "PASS",
+      "details": "MySQL: 0 | MongoDB: 0"
+    },
+    {
+      "name": "Ratings Count Equality",
+      "status": "PASS",
+      "details": "MySQL: 0 | MongoDB: 0"
+    },
+    {
+      "name": "Connections Count Equality",
+      "status": "PASS",
+      "details": "MySQL: 4 | MongoDB: 4"
+    },
+    {
+      "name": "Direct Messages Count Equality",
+      "status": "PASS",
+      "details": "MySQL: 6 | MongoDB: 6"
+    },
+    {
+      "name": "Organizer Scores Count Equality",
+      "status": "PASS",
+      "details": "MySQL: 5 | MongoDB: 5"
+    },
+    {
+      "name": "User Interests Count Equality",
+      "status": "PASS",
+      "details": "MySQL: 5 | MongoDB: 5"
+    }
+  ],
+  "pillar2_relationships": [
+    {
+      "name": "Event -> Organizer Reference",
+      "status": "PASS",
+      "details": "100% of Events link to valid Organizers."
+    },
+    {
+      "name": "Booking -> User & Event References",
+      "status": "PASS",
+      "details": "100% of Bookings resolve to valid Users and Events."
+    },
+    {
+      "name": "Payment -> Booking References",
+      "status": "PASS",
+      "details": "100% of Payments resolve to valid Bookings."
+    }
+  ],
+  "pillar3_financials": [
+    {
+      "name": "Booking Revenue & Ticket Quantity Reconciliation",
+      "status": "PASS",
+      "details": "Revenue: ₹2992 (exact match) | Tickets: 8"
+    },
+    {
+      "name": "Successful Payment Volume Reconciliation",
+      "status": "PASS",
+      "details": "Successful Payments Total: ₹2493 (exact match)"
+    }
+  ],
+  "pillar4_identifiers": [
+    {
+      "name": "Ticket ID Preservation",
+      "status": "PASS",
+      "details": "All 6 ticket codes (e.g. TKT-ANJALI-001) preserved 1:1."
+    },
+    {
+      "name": "Payment Transaction ID Preservation",
+      "status": "PASS",
+      "details": "All 5 transaction references (e.g. TXN-001-ARUN) preserved 1:1."
+    }
+  ],
+  "pillar5_security": [
+    {
+      "name": "User Password Hashes Format",
+      "status": "PASS",
+      "details": "All 10 user password hashes verified as valid BCrypt format ($2a$/$2b$)."
+    },
+    {
+      "name": "Organizer Password Hashes Format",
+      "status": "PASS",
+      "details": "All 5 organizer password hashes verified as valid BCrypt format ($2a$/$2b$)."
+    }
+  ],
+  "summary": {
+    "totalChecks": 22,
+    "passed": 22,
+    "warnings": 0,
+    "failures": 0
+  }
+}

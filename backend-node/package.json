@@ -1,0 +1,62 @@
+{
+  "name": "college-events-backend-node",
+  "version": "1.0.0",
+  "description": "CollegeEvents - AI-Powered Event Booking System (Node.js/Express Backend)",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "migrate:check": "node scripts/pre-migration-checks.js",
+    "migrate:dry-run": "node scripts/migrate-mysql-to-mongo.js --dry-run",
+    "migrate": "node scripts/migrate-mysql-to-mongo.js",
+    "migrate:validate": "node scripts/post-migration-validation.js",
+    "migrate:reconcile": "node scripts/migrate-mysql-to-mongo.js --reconcile",
+    "seed:mysql": "node scripts/seed-mysql.js",
+    "seed:demo": "node scripts/seed-demo-data.js",
+    "seed:president": "node src/scripts/provision-president.js"
+  },
+  "keywords": [
+    "express",
+    "mongoose",
+    "mongodb",
+    "college-events",
+    "event-booking"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@google/genai": "^2.28.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.9.5",
+    "multer": "^2.4.0",
+    "mysql2": "^3.24.5",
+    "node-cron": "^4.6.0",
+    "nodemailer": "^10.1.0",
+    "pdf-lib": "^1.17.1",
+    "pino": "^9.6.0",
+    "pino-http": "^10.4.0",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.1",
+    "ws": "^8.18.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9",
+    "pino-pretty": "^13.0.0",
+    "socket.io-client": "^4.8.4",
+    "supertest": "^7.0.0",
+    "vitest": "^3.0.5"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

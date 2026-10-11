@@ -19,7 +19,7 @@ createRoot(document.getElementById('root')).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <App />
-        <ToastContainer position="top-right" autoClose={4000} newestOnTop theme="colored" />
+        <ToastContainer position="top-right" autoClose={4000} newestOnTop theme="colored" limit={3} />
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>

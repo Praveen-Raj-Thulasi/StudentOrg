@@ -4,7 +4,7 @@ import { useQuery } from 'react-query';
 import { motion } from 'framer-motion';
 import {
   bookingsAPI, eventsAPI, certificatesAPI,
-  gamificationAPI, paymentsAPI,
+  gamificationAPI, paymentsAPI, membershipAPI,
 } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -139,6 +139,13 @@ export default function UserDashboard() {
     { staleTime: 2 * 60_000, retry: false },
   );
 
+  /* association membership */
+  const { data: membershipData } = useQuery(
+    'dash-membership',
+    () => membershipAPI.getMy().then(r => r.data?.data),
+    { staleTime: 60_000, retry: false },
+  );
+
   /* derived */
   const bookingList   = bookingsPage?.content ?? [];
   const totalBookings = bookingsPage?.totalElements ?? bookingList.length;
@@ -225,6 +232,54 @@ export default function UserDashboard() {
             icon={<FiAward className="w-5 h-5 text-violet-600" />}
             iconBg="bg-violet-50 border border-violet-100" />
         </div>
+
+        {/* ── Membership Status Banner ─────────────────────────────── */}
+        <motion.div {...fadeUp(0.08)}
+          className="rounded-2xl bg-white border border-slate-100 p-5 shadow-sm flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="h-12 w-12 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-700 text-xl font-bold shrink-0">
+              🎓
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Association Member</span>
+                <span className="font-mono text-xs font-bold text-teal-800 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-md">
+                  {membershipData?.memberNumber || user?.memberNumber || '—'}
+                </span>
+                <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${
+                  membershipData?.status === 'ACTIVE'
+                    ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                    : membershipData?.status === 'APPROVED'
+                    ? 'text-blue-700 bg-blue-50 border-blue-200'
+                    : membershipData?.status === 'PENDING'
+                    ? 'text-amber-700 bg-amber-50 border-amber-200'
+                    : membershipData?.status === 'EXPIRED'
+                    ? 'text-rose-700 bg-rose-50 border-rose-200'
+                    : 'text-slate-600 bg-slate-100 border-slate-200'
+                }`}>
+                  {membershipData?.status || 'NOT APPLIED'}
+                </span>
+              </div>
+              <p className="text-sm font-semibold text-slate-800 mt-0.5">
+                {membershipData?.status === 'ACTIVE'
+                  ? `Active Member${membershipData?.validUntil ? ` · Valid until ${fmtDate(membershipData.validUntil)}` : ''}`
+                  : membershipData?.status === 'APPROVED'
+                  ? 'Application Approved · Outstanding dues pending'
+                  : membershipData?.status === 'PENDING'
+                  ? 'Membership Application Under President Review'
+                  : membershipData?.status === 'EXPIRED'
+                  ? 'Membership Expired · Eligible for Renewal'
+                  : 'Join the official Skyline Student Association to unlock member benefits'}
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/profile"
+            className="rounded-xl border border-teal-600/30 bg-teal-50/50 hover:bg-teal-50 px-4 py-2 text-xs font-bold text-teal-700 transition-colors inline-flex items-center gap-1.5"
+          >
+            {membershipData?.status === 'ACTIVE' ? 'View Membership' : 'Membership Details'} <FiArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </motion.div>
 
         {/* ── Main two-column grid ──────────────────────────────────── */}
         <div className="grid gap-5 lg:grid-cols-2">

@@ -58,6 +58,9 @@ export default function CreateEvent() {
       const created = await eventsAPI.create({
         ...cleanedEventData,
         ticketPrice: Number(eventData.ticketPrice),
+        memberTicketPrice: eventData.memberTicketPrice ? Number(eventData.memberTicketPrice) : null,
+        volunteerCapacity: eventData.volunteerCapacity ? Number(eventData.volunteerCapacity) : 0,
+        volunteerCategories: eventData.volunteerCategoriesStr ? eventData.volunteerCategoriesStr.split(',').map(s => s.trim()).filter(Boolean) : [],
         totalSeats: Number(eventData.totalSeats),
         hasCertificate: Boolean(eventData.hasCertificate),
         certificateSettings: {
@@ -410,12 +413,21 @@ export default function CreateEvent() {
               )}
             </Section>
 
-            <Section icon={<FiUsers />} title="Tickets & Seats" text="Set capacity and pricing clearly.">
-              <FormField label="Ticket Price (Rs.)" error={errors.ticketPrice?.message}>
+            <Section icon={<FiUsers />} title="Tickets & Seats" text="Set capacity, pricing, and volunteer recruitment.">
+              <FormField label="Standard Ticket Price (Rs.)" error={errors.ticketPrice?.message}>
                 <input {...register('ticketPrice', { required: 'Ticket price is required', min: 0 })} type="number" min="0" step="0.01" className="input-field" placeholder="0 for free" />
+              </FormField>
+              <FormField label="Member Ticket Price (Rs.) (Optional)">
+                <input {...register('memberTicketPrice', { min: 0 })} type="number" min="0" step="0.01" className="input-field" placeholder="Discounted price for members" />
               </FormField>
               <FormField label="Total Seats" error={errors.totalSeats?.message}>
                 <input {...register('totalSeats', { required: 'Total seats is required', min: 1 })} type="number" min="1" className="input-field" placeholder="100" />
+              </FormField>
+              <FormField label="Volunteer Capacity Headcount">
+                <input {...register('volunteerCapacity', { min: 0 })} type="number" min="0" className="input-field" placeholder="0 if not recruiting volunteers" />
+              </FormField>
+              <FormField label="Volunteer Categories (comma separated)">
+                <input {...register('volunteerCategoriesStr')} className="input-field" placeholder="Registration, Logistics, Technical" />
               </FormField>
               <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 text-sm font-semibold text-slate-700">
                 <input {...register('hasCertificate')} type="checkbox" className="accent-teal-600" />

@@ -14,6 +14,7 @@ import {
   FiMenu,
   FiPlusCircle,
   FiSearch,
+  FiShoppingBag,
   FiUser,
   FiX,
 } from 'react-icons/fi';
@@ -53,17 +54,47 @@ export default function Navbar() {
 
   useEffect(() => setMenuOpen(false), [location.pathname]);
 
-  const isOrg = user?.role === 'ORGANIZER';
-  const isAdmin = user?.role === 'ADMIN';
-  const dashboardPath = isAdmin ? '/admin/dashboard' : isOrg ? '/organizer/dashboard' : '/dashboard';
+  const userRoles = [
+    (user?.role || '').toUpperCase(),
+    ...(Array.isArray(user?.roles) ? user.roles : []).map((r) => String(r).toUpperCase()),
+  ];
+  const isPresident = userRoles.includes('PRESIDENT') || userRoles.includes('ADMIN');
+  const isOrg = userRoles.includes('ORGANIZER');
+  const isTreasurer = userRoles.includes('TREASURER');
+  const isVolunteer = userRoles.includes('VOLUNTEER');
+
+  const dashboardPath = isPresident
+    ? '/admin/dashboard'
+    : isTreasurer
+    ? '/treasurer/dashboard'
+    : isVolunteer
+    ? '/volunteer/dashboard'
+    : isOrg
+    ? '/organizer/dashboard'
+    : '/dashboard';
+
   const profilePath = isOrg ? '/organizer/profile' : '/profile';
 
   const navLinks = user
-    ? isAdmin
+    ? isPresident
       ? [
-          { to: '/admin/dashboard', label: 'Admin', icon: <MdDashboard className="h-3.5 w-3.5" /> },
+          { to: '/admin/dashboard', label: 'President', icon: <MdDashboard className="h-3.5 w-3.5" /> },
           { to: '/admin/approvals', label: 'Approvals', icon: <FiList className="h-3.5 w-3.5" /> },
-          { to: '/admin/certificates', label: 'Certificates', icon: <FiAward className="h-3.5 w-3.5" /> },
+          { to: '/admin/announcements', label: 'Member announcements', icon: <FiBell className="h-3.5 w-3.5" /> },
+          { to: '/admin/roles', label: 'Roles', icon: <FiUser className="h-3.5 w-3.5" /> },
+          { to: '/admin/audit-logs', label: 'Audit Logs', icon: <FiAward className="h-3.5 w-3.5" /> },
+          { to: '/events', label: 'Browse', icon: <FiSearch className="h-3.5 w-3.5" /> },
+        ]
+      : isTreasurer
+      ? [
+          { to: '/treasurer/dashboard', label: 'Treasurer', icon: <MdDashboard className="h-3.5 w-3.5" /> },
+          { to: '/events', label: 'Browse Events', icon: <FiSearch className="h-3.5 w-3.5" /> },
+          { to: '/help', label: 'Help', icon: <FiSearch className="h-3.5 w-3.5" /> },
+        ]
+      : isVolunteer
+      ? [
+          { to: '/volunteer/dashboard', label: 'Volunteer', icon: <MdDashboard className="h-3.5 w-3.5" /> },
+          { to: '/events', label: 'Browse Events', icon: <FiSearch className="h-3.5 w-3.5" /> },
           { to: '/help', label: 'Help', icon: <FiSearch className="h-3.5 w-3.5" /> },
         ]
       : isOrg
@@ -82,6 +113,7 @@ export default function Navbar() {
           { to: '/discover', label: 'Discover', icon: <FiSearch className="h-3.5 w-3.5" /> },
           { to: '/networking', label: 'Network', icon: <FiUser className="h-3.5 w-3.5" /> },
           { to: '/bookings', label: 'My Bookings', icon: <MdEventAvailable className="h-3.5 w-3.5" /> },
+          { to: '/merchandise', label: 'Merchandise', icon: <FiShoppingBag className="h-3.5 w-3.5" /> },
           { to: '/payments', label: 'Payments', icon: <FiList className="h-3.5 w-3.5" /> },
           { to: '/portfolio', label: 'My Portfolio', icon: <FiList className="h-3.5 w-3.5" /> },
           { to: '/certificates', label: 'Certificates', icon: <FiList className="h-3.5 w-3.5" /> },
@@ -94,7 +126,30 @@ export default function Navbar() {
         { to: '/help', label: 'Help', icon: <FiList className="h-3.5 w-3.5" /> },
       ];
 
-  const menuItems = isOrg
+  const menuItems = isPresident
+    ? [
+        { label: 'President Dashboard', icon: <MdDashboard />, to: '/admin/dashboard' },
+        { label: 'Membership Reviews',  icon: <FiList />,      to: '/admin/approvals' },
+        { label: 'Role Management',     icon: <FiUser />,      to: '/admin/roles' },
+        { label: 'Audit Logs',          icon: <FiAward />,     to: '/admin/audit-logs' },
+        { label: 'Certificates',        icon: <FiAward />,     to: '/admin/certificates' },
+        { label: 'Platform Insights',   icon: <FiSearch />,    to: '/admin/ai-insights' },
+        { label: 'Notifications',       icon: <FiBell />,      to: '/notifications' },
+        { label: 'Profile',             icon: <FiUser />,      to: '/profile' },
+      ]
+    : isTreasurer
+    ? [
+        { label: 'Treasurer Dashboard', icon: <MdDashboard />, to: '/treasurer/dashboard' },
+        { label: 'Notifications',       icon: <FiBell />,      to: '/notifications' },
+        { label: 'Profile',             icon: <FiUser />,      to: '/profile' },
+      ]
+    : isVolunteer
+    ? [
+        { label: 'Volunteer Dashboard', icon: <MdDashboard />, to: '/volunteer/dashboard' },
+        { label: 'Notifications',       icon: <FiBell />,      to: '/notifications' },
+        { label: 'Profile',             icon: <FiUser />,      to: '/profile' },
+      ]
+    : isOrg
     ? [
         { label: 'Dashboard',   icon: <MdDashboard />,  to: '/organizer/dashboard' },
         { label: 'My Events',   icon: <FiCalendar />,   to: '/organizer/events' },
@@ -106,14 +161,6 @@ export default function Navbar() {
         { label: 'Notifications',icon: <FiBell />,      to: '/notifications' },
         { label: 'Profile',     icon: <FiUser />,       to: '/organizer/profile' },
       ]
-    : isAdmin
-    ? [
-        { label: 'Dashboard',   icon: <MdDashboard />, to: '/admin/dashboard' },
-        { label: 'Approvals',   icon: <FiList />,      to: '/admin/approvals' },
-        { label: 'Certificates',icon: <FiAward />,     to: '/admin/certificates' },
-        { label: 'Platform Insights', icon: <FiSearch />,    to: '/admin/ai-insights' },
-        { label: 'Help Center', icon: <FiSearch />,    to: '/help' },
-      ]
     : [
         { label: 'Dashboard', icon: <MdDashboard />, to: '/dashboard' },
         { label: 'My Bookings', icon: <MdEventAvailable />, to: '/bookings' },
@@ -122,6 +169,7 @@ export default function Navbar() {
         { label: 'Notifications', icon: <FiBell />, to: '/notifications' },
         { label: 'Profile', icon: <FiUser />, to: '/profile' },
       ];
+
 
   return (
     <motion.nav

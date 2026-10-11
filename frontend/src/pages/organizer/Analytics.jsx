@@ -67,7 +67,7 @@ export default function OrganizerAnalytics() {
   const {
     totalEvents = 0, completedEvents = 0, publishedEvents = 0,
     totalRegistrations = 0, categoryDistribution = {}, eventStats = [],
-    performanceScore: score = {}, aiInsights
+    performanceScore: score = {}, aiInsights, financialSummary = {}
   } = data;
 
   const catData  = Object.entries(categoryDistribution).map(([name, value]) => ({ name: name.replace(/_/g, ' '), value }));
@@ -103,6 +103,42 @@ export default function OrganizerAnalytics() {
           <StatCard label="Registrations"   value={totalRegistrations} icon={FiUsers}       color="purple" />
           <StatCard label="Avg Rating"      value={score.averageRating ? `${Number(score.averageRating).toFixed(1)}★` : '—'} icon={FiStar} color="amber" />
           <StatCard label="Perf. Score"     value={score.overallScore != null ? `${Number(score.overallScore).toFixed(0)}/100` : '—'} icon={FiPercent} color="rose" />
+        </div>
+
+        {/* ── Authoritative Financial Records ─────────────────── */}
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900">
+              <FiDollarSign className="text-emerald-600" /> Authoritative Financial & Revenue Summary
+            </h3>
+            <span className="text-[11px] font-semibold text-slate-400">Supported strictly by verified transactions</span>
+          </div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
+              <p className="text-xs font-semibold text-emerald-800">Net Recorded Revenue</p>
+              <p className="mt-1 text-xl font-extrabold text-emerald-950">Rs. {Number(financialSummary.netRecordedRevenue || 0).toLocaleString()}</p>
+            </div>
+            <div className="rounded-xl border border-blue-100 bg-blue-50/50 p-4">
+              <p className="text-xs font-semibold text-blue-800">Successful Collections</p>
+              <p className="mt-1 text-xl font-extrabold text-blue-950">Rs. {Number(financialSummary.successfulPaymentsAmount || 0).toLocaleString()}</p>
+            </div>
+            <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+              <p className="text-xs font-semibold text-slate-600">Gross Bookings</p>
+              <p className="mt-1 text-xl font-extrabold text-slate-900">Rs. {Number(financialSummary.grossBookingsAmount || 0).toLocaleString()}</p>
+            </div>
+            <div className="rounded-xl border border-rose-100 bg-rose-50/50 p-4">
+              <p className="text-xs font-semibold text-rose-800">Refunds Processed</p>
+              <p className="mt-1 text-xl font-extrabold text-rose-950">Rs. {Number(financialSummary.refundedAmount || 0).toLocaleString()}</p>
+            </div>
+            <div className="rounded-xl border border-violet-100 bg-violet-50/50 p-4">
+              <p className="text-xs font-semibold text-violet-800">Tickets Sold</p>
+              <p className="mt-1 text-xl font-extrabold text-violet-950">{financialSummary.ticketSalesCount || 0}</p>
+            </div>
+            <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-4">
+              <p className="text-xs font-semibold text-amber-800">Verified Check-ins</p>
+              <p className="mt-1 text-xl font-extrabold text-amber-950">{financialSummary.verifiedAttendanceCount || 0}</p>
+            </div>
+          </div>
         </div>
 
         {/* ── Performance score + AI insights ─────────────────── */}

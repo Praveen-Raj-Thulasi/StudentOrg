@@ -24,11 +24,18 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
         secure: false,
+        ws: true,
         configure: (proxy) => {
           proxy.on('error', (err) => {
             console.error('[proxy error]', err.message);
           });
         },
+      },
+      '/socket.io': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false,
+        ws: true,
       },
       '/uploads': {
         target: 'http://localhost:8080',

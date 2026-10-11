@@ -102,7 +102,7 @@ api.interceptors.response.use(
     if (!silent && status !== 404
         && !(status === 401 && isAuthEndpoint)
         && !isOtpEndpoint && !isPaymentEndpoint && !isSilentEndpoint) {
-      toast.error(msg);
+      toast.error(msg, { toastId: msg });
     }
 
     return Promise.reject(err);
@@ -138,6 +138,7 @@ export const eventsAPI = {
   myEvents:    (p, config = {}) => api.get('/events/my', { ...config, params: p }),
   uploadBanner:(id, f) => api.post(`/events/${id}/banner`, f, { headers: { 'Content-Type': 'multipart/form-data' } }),
   uploadAuthorizedDocument:(id, f) => api.post(`/events/${id}/authorized-document`, f, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  publishAnnouncement: (id, d) => api.post(`/events/${id}/announcements`, d),
   eventQa:     (id, question) => api.post(`/ai/eventgpt/events/${id}/qa`, { question }),
 };
 
@@ -169,6 +170,82 @@ export const paymentsAPI = {
   myRefunds: () => api.get('/payments/refunds/my'),
 };
 
+export const membershipAPI = {
+  apply: (data) => api.post('/memberships/apply', data),
+  getMy: () => api.get('/memberships/my'),
+  getStatus: () => api.get('/memberships/status'),
+  renew: (data) => api.post('/memberships/renew', data),
+  getPending: () => api.get('/memberships/pending'),
+  getAll: (params) => api.get('/memberships', { params }),
+  approve: (id, data) => api.post(`/memberships/${id}/approve`, data),
+  reject: (id, data) => api.post(`/memberships/${id}/reject`, data),
+  suspend: (id, data) => api.post(`/memberships/${id}/suspend`, data),
+  activate: (id) => api.post(`/memberships/${id}/activate`),
+};
+
+export const duesAPI = {
+  getMy: () => api.get('/dues/my'),
+  getAll: (params) => api.get('/dues', { params }),
+  assess: (data) => api.post('/dues', data),
+  createOrder: (id) => api.post(`/dues/${id}/order`),
+  verify: (id, data) => api.post(`/dues/${id}/verify`, data),
+  pay: (id, data) => api.post(`/dues/${id}/pay`, data),
+  waive: (id, data) => api.post(`/dues/${id}/waive`, data),
+};
+
+export const roleAPI = {
+  getMyRoles: () => api.get('/roles/my-roles'),
+  getUserRoles: (userId) => api.get(`/roles/user/${userId}`),
+  assign: (data) => api.post('/roles/assign', data),
+  revoke: (data) => api.post('/roles/revoke', data),
+};
+
+export const treasurerAPI = {
+  getOverview: () => api.get('/treasurer/overview'),
+  getReports: (params) => api.get('/treasurer/reports', { params }),
+  exportReportsCsv: (params) =>
+    api.get('/treasurer/reports/export', { params, responseType: 'blob' }),
+  getSponsorships: (params) => api.get('/treasurer/sponsorships', { params }),
+  createSponsorship: (data) => api.post('/treasurer/sponsorships', data),
+  getSponsorshipById: (id) => api.get(`/treasurer/sponsorships/${id}`),
+  getCollections: (params) => api.get('/treasurer/collections', { params }),
+  recordCollection: (data) => api.post('/treasurer/collections', data),
+  verifyCollection: (id, data) => api.post(`/treasurer/collections/${id}/verify`, data),
+  rejectCollection: (id, data) => api.post(`/treasurer/collections/${id}/reject`, data),
+  inspectClaimReceipt: (id) => api.get(`/treasurer/claims/${id}/inspect-receipt`),
+};
+
+export const volunteerAPI = {
+  getOverview: () => api.get('/volunteer/overview'),
+  getProfile: () => api.get('/volunteer/profile'),
+  updateProfile: (data) => api.put('/volunteer/profile', data),
+  getMyTasks: (params) => api.get('/volunteer/tasks', { params }),
+  getTaskById: (id) => api.get(`/volunteer/tasks/${id}`),
+  updateTaskStatus: (id, data) => api.patch(`/volunteer/tasks/${id}/status`, data),
+  getOpportunities: () => api.get('/volunteer/opportunities'),
+  applyOpportunity: (eventId, data) => api.post(`/volunteer/opportunities/${eventId}/apply`, data),
+  getMyApplications: () => api.get('/volunteer/my-applications'),
+  withdrawApplication: (id) => api.post(`/volunteer/applications/${id}/withdraw`),
+  getSmartMatches: () => api.get('/volunteer/smart-matches'),
+  getContributions: () => api.get('/volunteer/contributions'),
+  getDigitalId: () => api.get('/volunteer/digital-id'),
+  getReimbursements: () => api.get('/volunteer/reimbursements'),
+  uploadReimbursementReceipt: (file) => {
+    const formData = new FormData();
+    formData.append('receipt', file);
+    return api.post('/volunteer/reimbursements/receipt', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  submitReimbursement: (data) => api.post('/volunteer/reimbursements', data),
+  createTask: (data) => api.post('/volunteer/tasks', data),
+  getOrganizerTasks: (params) => api.get('/volunteer/organizer/tasks', { params }),
+  getAvailableVolunteers: () => api.get('/volunteer/organizer/volunteers'),
+  verifyTask: (id, data) => api.post(`/volunteer/organizer/tasks/${id}/verify`, data),
+  getOrganizerApplications: (params) => api.get('/volunteer/organizer/applications', { params }),
+  reviewApplication: (id, data) => api.post(`/volunteer/organizer/applications/${id}/review`, data),
+};
+
 export const adminAPI = {
   dashboard: () => api.get('/admin/dashboard'),
   approvals: (p) => api.get('/admin/approvals', { params: p }),
@@ -181,6 +258,7 @@ export const adminAPI = {
   updateRefundStatus: (id, d) => api.patch(`/admin/refunds/${id}/status`, d),
   auditLogs: (p) => api.get('/admin/audit-logs', { params: p }),
 };
+
 
 // ── User ─────────────────────────────────────────────────────────────
 export const userAPI = {
@@ -201,7 +279,7 @@ export const organizerAPI = {
   uploadLogo:     (f) => api.post('/organizer/profile/logo', f, { headers: { 'Content-Type': 'multipart/form-data' } }),
   changePassword: (d) => api.patch('/organizer/change-password', d),
   getDashboard:   (config = {})  => api.get('/organizer/dashboard', config),
-  participants:   ()  => api.get('/organizer/participants'),
+  participants:   (params)  => api.get('/organizer/participants', { params }),
   exportParticipants: (eventId) => api.get(`/organizer/events/${eventId}/participants/export`, { responseType: 'blob' }),
   generatePoster: (eventId) => api.post(`/organizer/events/${eventId}/poster`),
 };
@@ -348,6 +426,61 @@ export const notificationsAPI = {
   getUnread:   ()  => api.get('/notifications/unread', { silent: true }),
   markAllRead: ()  => api.patch('/notifications/read-all'),
   streamUrl:   ()  => `${api.defaults.baseURL}/notifications/stream?token=${encodeURIComponent(localStorage.getItem('eb_token') || '')}`,
+};
+
+// ── Finance & Operations (Phase 5) ────────────────────────────────────
+export const financeAPI = {
+  getExpenses:          (p)          => api.get('/finance/expenses', { params: p }),
+  getExpenseById:       (id)         => api.get(`/finance/expenses/${id}`),
+  createExpense:        (data)       => api.post('/finance/expenses', data),
+  approveExpense:       (id)         => api.post(`/finance/expenses/${id}/approve`),
+  rejectExpense:        (id, reason) => api.post(`/finance/expenses/${id}/reject`, { reason }),
+  payExpense:           (id, data)   => api.post(`/finance/expenses/${id}/pay`, data),
+  getReimbursements:    (p)          => api.get('/finance/reimbursements', { params: p }),
+  getMyReimbursements:  ()           => api.get('/finance/reimbursements/my'),
+  submitReimbursement:  (data)       => api.post('/finance/reimbursements', data),
+  reviewReimbursement:  (id, data)   => api.post(`/finance/reimbursements/${id}/review`, data),
+  disburseReimbursement:(id, data)   => api.post(`/finance/reimbursements/${id}/disburse`, data),
+  getBudgets:           (p)          => api.get('/finance/budgets', { params: p }),
+  createBudget:         (data)       => api.post('/finance/budgets', data),
+  adjustBudget:         (id, data)   => api.post(`/finance/budgets/${id}/adjust`, data),
+  getLedger:            (p)          => api.get('/finance/ledger', { params: p }),
+  reverseLedger:        (id, data)   => api.post(`/finance/ledger/${id}/reverse`, data),
+  getReconciliation:    (p)          => api.get('/finance/reconciliation', { params: p }),
+};
+
+// ── Merchandise & Concurrency-Safe Inventory (Phase 5) ────────────────
+export const merchandiseAPI = {
+  getProducts:   (p)        => api.get('/merchandise/products', { params: p }),
+  getProductById:(id)       => api.get(`/merchandise/products/${id}`),
+  createProduct: (data)     => api.post('/merchandise/products', data),
+  updateProduct: (id, data) => api.put(`/merchandise/products/${id}`, data),
+  adjustStock:   (id, data) => api.post(`/merchandise/products/${id}/adjust-stock`, data),
+  getMovements:  (p)        => api.get('/merchandise/movements', { params: p }),
+  createOrder:   (data)     => api.post('/merchandise/orders', data),
+  cancelOrder:   (id, data) => api.post(`/merchandise/orders/${id}/cancel`, data),
+  getMyOrders:   ()         => api.get('/merchandise/orders/my'),
+  getAllOrders:  (p)        => api.get('/merchandise/orders', { params: p }),
+};
+
+export const merchandisePaymentAPI = {
+  createOrder: (orderId) => api.post(`/payments/merchandise/orders/${orderId}/razorpay/order`),
+  verify: (orderId, data) => api.post(`/payments/merchandise/orders/${orderId}/razorpay/verify`, data),
+};
+
+// ── Fundraising Campaigns (Phase 5) ───────────────────────────────────
+export const fundraisingAPI = {
+  getCampaigns:       (p)        => api.get('/fundraising/campaigns', { params: p }),
+  getCampaignById:    (id)       => api.get(`/fundraising/campaigns/${id}`),
+  createCampaign:     (data)     => api.post('/fundraising/campaigns', data),
+  updateCampaign:     (id, data) => api.put(`/fundraising/campaigns/${id}`, data),
+  contribute:         (id, data) => api.post(`/fundraising/campaigns/${id}/contribute`, data),
+  confirmContribution:(id, data) => api.post(`/fundraising/contributions/${id}/confirm`, data),
+};
+
+export const organizationAnnouncementsAPI = {
+  list: (params) => api.get('/announcements', { params }),
+  publish: (data) => api.post('/announcements', data),
 };
 
 export default api;
